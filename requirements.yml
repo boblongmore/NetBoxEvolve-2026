@@ -1,0 +1,5 @@
+---
+collections:
+  - name: arista.avd
+  - name: netbox.netbox
+  - name: cisco.nac_dc_vxlan

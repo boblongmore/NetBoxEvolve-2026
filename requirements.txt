@@ -1,0 +1,6 @@
+ansible-core<2.22.0,>=2.16.0
+ansible-lint
+yamllint
+pyavd==6.3.0
+pynetbox
+anta>=1.8.0

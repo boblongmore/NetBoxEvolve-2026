@@ -1,0 +1,11 @@
+---
+exclude_paths:
+  - .venv/
+  - build/
+  - clab/clab-*/
+  - .yamllint
+
+use_default_rules: true
+
+skip_list:
+  - yaml[line-length]  # enforced by yamllint instead
