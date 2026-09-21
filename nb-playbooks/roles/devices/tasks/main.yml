@@ -11,6 +11,7 @@
       position: "{{ item.position }}"
       face: front
       serial: "{{ item.serial }}"
+      tags: "{{ item.tags | default(omit) }}"
       custom_fields:
         node_id: "{{ item.node_id }}"
         mlag_domain_id: "{{ item.mlag_domain_id | default(omit) }}"

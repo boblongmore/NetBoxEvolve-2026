@@ -4,6 +4,12 @@
 #
 # mgmt_ip must match clab/dc1-arista.clab.yml exactly, the same way the
 # sibling capitalone-avd-poc project pins clab mgmt to its NetBox prefix.
+#
+# Leaf devices carry tag svc-tenant1 -- this is the ONLY record of which
+# devices get VRF TENANT1 / its VLANs attached. Without it there'd be no
+# way to answer "which devices carry this service" from NetBox itself;
+# the export would have to hardcode "every leaf gets everything", which
+# is exactly the kind of implicit rule this model is built to avoid.
 devices:
   - name: dc1-spine1
     role: spine
@@ -26,6 +32,7 @@ devices:
     mgmt_ip: 172.20.21.13/24
     node_id: 3
     mlag_domain_id: 1
+    tags: [svc-tenant1]
 
   - name: dc1-leaf2
     role: leaf
@@ -34,6 +41,7 @@ devices:
     mgmt_ip: 172.20.21.14/24
     node_id: 4
     mlag_domain_id: 1
+    tags: [svc-tenant1]
 
   - name: dc1-leaf3
     role: leaf
@@ -41,6 +49,7 @@ devices:
     serial: DEMO0000005
     mgmt_ip: 172.20.21.15/24
     node_id: 5
+    tags: [svc-tenant1]
 
   - name: dc1-leaf4
     role: leaf
@@ -48,6 +57,7 @@ devices:
     serial: DEMO0000006
     mgmt_ip: 172.20.21.16/24
     node_id: 6
+    tags: [svc-tenant1]
 
 # The vPC/MLAG VTEP VIP -- Nexus as Code's mandatory vpc_peers[].vtep_vip.
 # Deliberately the only VTEP-related address stored: everything else is

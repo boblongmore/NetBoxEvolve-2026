@@ -21,7 +21,7 @@
       color: "{{ item.color | default(omit) }}"
       description: "{{ item.description | default(omit) }}"
     state: present
-  loop: "{{ tags }}"
+  loop: "{{ netbox_tags }}"
   loop_control:
     label: "{{ item.name }}"
   register: tenancy_result

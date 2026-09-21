@@ -3,7 +3,11 @@ tenants:
   - name: TENANT1
     description: Demo tenant carried by the fabric's L2/L3 services.
 
-tags:
+# Named netbox_tags, not tags -- "tags" is an Ansible-reserved name (task
+# tag filtering) and using it as a plain variable causes exactly the kind
+# of ambiguity that shows up as a "Found variable using reserved name"
+# warning the moment anyone runs this playbook with --tags.
+netbox_tags:
   - name: svc-tenant1
     color: "2196f3"
     description: Marks the VRF, VLANs and devices that carry TENANT1 services.
