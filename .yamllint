@@ -16,3 +16,6 @@ ignore:
   - build/
   - clab/clab-*/
   - nb-playbooks/inventory/group_vars/all/vault.yml  # vault-encrypted, not plain YAML
+  - avd-playbooks/inventory/group_vars/all/vault.yml  # vault-encrypted, not plain YAML
+  - avd-playbooks/intended/       # AVD-generated output, not our code
+  - avd-playbooks/documentation/  # AVD-generated output, not our code

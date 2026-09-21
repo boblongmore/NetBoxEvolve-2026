@@ -1,0 +1,32 @@
+---
+# Renders eos_designs input straight from the NetBox-exported model
+# (dc1_model, loaded by the calling playbook) -- pools, VRFs, VLANs,
+# node identities and the entire cable-derived uplink/MLAG layout are
+# never hand-listed a second time here.
+- name: Ensure group_vars directories exist
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - "{{ playbook_dir }}/inventory/group_vars/all"
+    - "{{ playbook_dir }}/inventory/group_vars/dc1_spine"
+    - "{{ playbook_dir }}/inventory/group_vars/dc1_leaf"
+
+- name: Render fabric-wide vars (protocols, tenants/VRFs/VLANs)
+  ansible.builtin.template:
+    src: fabric.yml.j2
+    dest: "{{ playbook_dir }}/inventory/group_vars/all/fabric.yml"
+    mode: "0644"
+
+- name: Render spine node-type vars
+  ansible.builtin.template:
+    src: spine.yml.j2
+    dest: "{{ playbook_dir }}/inventory/group_vars/dc1_spine/spine.yml"
+    mode: "0644"
+
+- name: Render leaf node-type vars
+  ansible.builtin.template:
+    src: leaf.yml.j2
+    dest: "{{ playbook_dir }}/inventory/group_vars/dc1_leaf/leaf.yml"
+    mode: "0644"

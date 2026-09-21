@@ -1,0 +1,54 @@
+---
+# Rendered from {{ dc1_model.exported_from }} (exported {{ dc1_model.exported_at }}).
+# Do not hand-edit -- re-run nb-playbooks/export-model.yml then
+# avd-playbooks/render-avd-vars.yml instead.
+{% set spine_names = dc1_model.devices | selectattr('role', 'equalto', 'spine') | map(attribute='name') | list | sort %}
+type: l3leaf
+
+l3leaf:
+  defaults:
+    platform: cEOSLab
+    bgp_as: {{ dc1_model.fabric.asn }}
+    loopback_ipv4_pool: {{ dc1_model.pools['loopback-routerid'] }}
+    # Spines already used node_ids 1-2 from the same pool.
+    loopback_ipv4_offset: {{ spine_names | length }}
+    vtep_loopback_ipv4_pool: {{ dc1_model.pools['vtep-loopback'] }}
+    uplink_ipv4_pool: {{ dc1_model.pools['underlay-p2p'] }}
+    mlag_peer_ipv4_pool: {{ dc1_model.pools['mlag-peer-l2'] }}
+    mlag_peer_l3_ipv4_pool: {{ dc1_model.pools['mlag-peer-l3'] }}
+    virtual_router_mac_address: "{{ dc1_model.settings.anycast_gateway_mac }}"
+    evpn_route_servers: {{ spine_names }}
+    # See the matching comment in spine.yml.j2.
+    mgmt_interface: Management0
+
+  # Two nodes in a node_group auto-enables MLAG. Uplinks are set per node,
+  # never as a shared default, because each leaf lands on a different
+  # spine port -- exactly what dc1_model.devices[].uplinks already
+  # records from the cable graph.
+  node_groups:
+{% for pair in dc1_model.mlag_pairs %}
+    - group: {{ dc1_model.fabric.site | upper }}_MLAG_{{ pair.domain_id }}
+      mlag_domain_id: {{ pair.domain_id }}
+      mlag_interfaces: {{ pair.peer_link_interfaces }}
+      mlag_port_channel_id: {{ dc1_model.settings.vpc.peer_link_po }}
+      nodes:
+{% for peer_name in [pair.peer1, pair.peer2] %}
+{% set peer_device = dc1_model.devices | selectattr('name', 'equalto', peer_name) | first %}
+        - name: {{ peer_device.name }}
+          id: {{ peer_device.node_id }}
+          mgmt_ip: {{ peer_device.mgmt_ip }}
+          uplink_switches: {{ peer_device.uplinks | map(attribute='peer_device') | list }}
+          uplink_interfaces: {{ peer_device.uplinks | map(attribute='interface') | list }}
+          uplink_switch_interfaces: {{ peer_device.uplinks | map(attribute='peer_interface') | list }}
+{% endfor %}
+{% endfor %}
+
+  nodes:
+{% for device in dc1_model.devices | selectattr('role', 'equalto', 'leaf') | rejectattr('mlag_domain_id') | sort(attribute='node_id') %}
+    - name: {{ device.name }}
+      id: {{ device.node_id }}
+      mgmt_ip: {{ device.mgmt_ip }}
+      uplink_switches: {{ device.uplinks | map(attribute='peer_device') | list }}
+      uplink_interfaces: {{ device.uplinks | map(attribute='interface') | list }}
+      uplink_switch_interfaces: {{ device.uplinks | map(attribute='peer_interface') | list }}
+{% endfor %}

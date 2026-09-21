@@ -1,0 +1,28 @@
+---
+# Rendered from {{ dc1_model.exported_from }} (exported {{ dc1_model.exported_at }}).
+# Do not hand-edit -- re-run nb-playbooks/export-model.yml then
+# avd-playbooks/render-clab.yml instead.
+name: {{ clab_topology_name }}
+
+# Pinned to the "management" pool from NetBox -- clab and NetBox must
+# agree on every device's address.
+mgmt:
+  network: {{ clab_mgmt_network }}
+  ipv4-subnet: "{{ dc1_model.pools.management }}"
+
+topology:
+  kinds:
+    arista_ceos:
+      image: {{ clab_ceos_image }}
+
+  nodes:
+{% for device in dc1_model.devices | sort(attribute='name') %}
+    {{ device.name }}:
+      kind: arista_ceos
+      mgmt-ipv4: {{ device.mgmt_ip.split('/')[0] }}
+{% endfor %}
+
+  links:
+{% for cable in dc1_model.cables %}
+    - endpoints: ["{{ cable.a.device }}:{{ cable.a.interface | replace('Ethernet', 'eth') }}", "{{ cable.b.device }}:{{ cable.b.interface | replace('Ethernet', 'eth') }}"]
+{% endfor %}

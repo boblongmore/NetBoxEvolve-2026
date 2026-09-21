@@ -1,0 +1,7 @@
+---
+clab_topology_name: dc1-arista
+clab_ceos_image: ceos:4.32.0F
+# Must be unique on the host -- the sibling capitalone-avd-poc project's
+# containerlab topology already owns the network named "clab-mgmt".
+clab_mgmt_network: clab-dc1-mgmt
+clab_out_path: "{{ playbook_dir }}/../clab/{{ clab_topology_name }}.clab.yml"

@@ -1,0 +1,14 @@
+---
+- name: Render the DC1 containerlab topology from the NetBox-exported model
+  hosts: localhost
+  gather_facts: false
+
+  tasks:
+    - name: Load the exported fabric model
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../build/dc1-model.yml"
+        name: dc1_model
+
+    - name: Containerlab topology
+      ansible.builtin.include_role:
+        name: clab

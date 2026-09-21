@@ -4,6 +4,13 @@ exclude_paths:
   - build/
   - clab/clab-*/
   - .yamllint
+  # ansible-lint resolves exclude_paths relative to wherever it's invoked
+  # from, not this file's location -- both forms are listed since
+  # nb-playbooks/avd-playbooks commands are run from inside each dir.
+  - intended/                     # AVD-generated output, not our code
+  - documentation/                # AVD-generated output, not our code
+  - avd-playbooks/intended/
+  - avd-playbooks/documentation/
 
 use_default_rules: true
 

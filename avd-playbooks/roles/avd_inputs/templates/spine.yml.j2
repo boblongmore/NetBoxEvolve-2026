@@ -1,0 +1,24 @@
+---
+# Rendered from {{ dc1_model.exported_from }} (exported {{ dc1_model.exported_at }}).
+# Do not hand-edit -- re-run nb-playbooks/export-model.yml then
+# avd-playbooks/render-avd-vars.yml instead.
+type: spine
+
+spine:
+  defaults:
+    platform: cEOSLab
+    bgp_as: {{ dc1_model.fabric.asn }}
+    loopback_ipv4_pool: {{ dc1_model.pools['loopback-routerid'] }}
+    # This cEOS image names its OOB interface Management0, not the AVD/
+    # real-hardware default of Management1. Set here (node_config, via
+    # type defaults) rather than the fabric-wide mgmt_interface_settings/
+    # mgmt_interface vars, which this AVD version doesn't apply to the
+    # generated interface name -- confirmed by testing both.
+    mgmt_interface: Management0
+
+  nodes:
+{% for device in dc1_model.devices | selectattr('role', 'equalto', 'spine') | sort(attribute='node_id') %}
+    - name: {{ device.name }}
+      id: {{ device.node_id }}
+      mgmt_ip: {{ device.mgmt_ip }}
+{% endfor %}

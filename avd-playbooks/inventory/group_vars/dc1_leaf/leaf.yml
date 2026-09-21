@@ -1,0 +1,58 @@
+---
+# Rendered from https://blnetbox.lab.local (exported 2026-09-21T19:33:56Z).
+# Do not hand-edit -- re-run nb-playbooks/export-model.yml then
+# avd-playbooks/render-avd-vars.yml instead.
+type: l3leaf
+
+l3leaf:
+  defaults:
+    platform: cEOSLab
+    bgp_as: 65001
+    loopback_ipv4_pool: 10.0.0.0/24
+    # Spines already used node_ids 1-2 from the same pool.
+    loopback_ipv4_offset: 2
+    vtep_loopback_ipv4_pool: 10.0.1.0/24
+    uplink_ipv4_pool: 10.1.0.0/24
+    mlag_peer_ipv4_pool: 10.255.252.0/24
+    mlag_peer_l3_ipv4_pool: 10.255.253.0/24
+    virtual_router_mac_address: "00:1c:73:00:dc:01"
+    evpn_route_servers: ['dc1-spine1', 'dc1-spine2']
+    # See the matching comment in spine.yml.j2.
+    mgmt_interface: Management0
+
+  # Two nodes in a node_group auto-enables MLAG. Uplinks are set per node,
+  # never as a shared default, because each leaf lands on a different
+  # spine port -- exactly what dc1_model.devices[].uplinks already
+  # records from the cable graph.
+  node_groups:
+    - group: DC1_MLAG_1
+      mlag_domain_id: 1
+      mlag_interfaces: ['Ethernet7', 'Ethernet8']
+      mlag_port_channel_id: 1
+      nodes:
+        - name: dc1-leaf1
+          id: 3
+          mgmt_ip: 172.20.21.13/24
+          uplink_switches: ['dc1-spine1', 'dc1-spine2']
+          uplink_interfaces: ['Ethernet1', 'Ethernet2']
+          uplink_switch_interfaces: ['Ethernet1', 'Ethernet1']
+        - name: dc1-leaf2
+          id: 4
+          mgmt_ip: 172.20.21.14/24
+          uplink_switches: ['dc1-spine1', 'dc1-spine2']
+          uplink_interfaces: ['Ethernet1', 'Ethernet2']
+          uplink_switch_interfaces: ['Ethernet2', 'Ethernet2']
+
+  nodes:
+    - name: dc1-leaf3
+      id: 5
+      mgmt_ip: 172.20.21.15/24
+      uplink_switches: ['dc1-spine1', 'dc1-spine2']
+      uplink_interfaces: ['Ethernet1', 'Ethernet2']
+      uplink_switch_interfaces: ['Ethernet3', 'Ethernet3']
+    - name: dc1-leaf4
+      id: 6
+      mgmt_ip: 172.20.21.16/24
+      uplink_switches: ['dc1-spine1', 'dc1-spine2']
+      uplink_interfaces: ['Ethernet1', 'Ethernet2']
+      uplink_switch_interfaces: ['Ethernet4', 'Ethernet4']

@@ -1,0 +1,14 @@
+---
+- name: Build DC1 EOS configs from the AVD structured design
+  hosts: DC1
+  connection: local
+  gather_facts: false
+
+  tasks:
+    - name: Generate eos_designs structured configuration
+      ansible.builtin.import_role:
+        name: arista.avd.eos_designs
+
+    - name: Generate EOS CLI configs from structured configuration
+      ansible.builtin.import_role:
+        name: arista.avd.eos_cli_config_gen

@@ -1,0 +1,9 @@
+---
+# Renders the containerlab topology straight from the NetBox-exported
+# model (dc1_model, loaded by the calling playbook) -- node names, mgmt
+# IPs and the entire cable list are never hand-listed a second time here.
+- name: Render the containerlab topology file
+  ansible.builtin.template:
+    src: dc1-arista.clab.yml.j2
+    dest: "{{ clab_out_path }}"
+    mode: "0644"

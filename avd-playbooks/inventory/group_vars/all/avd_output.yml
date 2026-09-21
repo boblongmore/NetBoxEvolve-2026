@@ -1,0 +1,6 @@
+---
+# Not NetBox-derived -- a plain AVD output-path preference, so it's
+# hand-maintained here rather than templated by avd_inputs. Default
+# root_dir is inventory_dir, which would bury generated output under
+# inventory/; push it up one level to sit alongside inventory/ instead.
+root_dir: "{{ inventory_dir }}/.."

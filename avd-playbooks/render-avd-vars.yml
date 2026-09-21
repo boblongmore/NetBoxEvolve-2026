@@ -1,0 +1,14 @@
+---
+- name: Render eos_designs inventory vars from the NetBox-exported model
+  hosts: localhost
+  gather_facts: false
+
+  tasks:
+    - name: Load the exported fabric model
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../build/dc1-model.yml"
+        name: dc1_model
+
+    - name: AVD input vars
+      ansible.builtin.include_role:
+        name: avd_inputs

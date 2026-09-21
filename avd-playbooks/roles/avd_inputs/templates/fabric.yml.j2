@@ -1,0 +1,46 @@
+---
+# Rendered from {{ dc1_model.exported_from }} (exported {{ dc1_model.exported_at }}).
+# Do not hand-edit -- re-run nb-playbooks/export-model.yml then
+# avd-playbooks/render-avd-vars.yml instead.
+fabric_name: {{ dc1_model.fabric.name }}
+underlay_routing_protocol: {{ dc1_model.settings.underlay }}
+overlay_routing_protocol: {{ dc1_model.settings.overlay }}
+
+mgmt_gateway: {{ dc1_model.settings.mgmt_gateway }}
+# The OOB interface name override (Management0 for this cEOS image, not
+# AVD's Management1 default) lives in spine.yml.j2/leaf.yml.j2 instead of
+# here -- pyavd's resolution order for it is node_config (type defaults)
+# first, platform_settings second, and only then this fabric-wide var,
+# so setting it here alone had no effect. See the comment there.
+
+dns_settings:
+  servers:
+{% for server in dc1_model.settings.dns_servers %}
+    - ip_address: {{ server }}
+{% endfor %}
+
+ntp_settings:
+  servers:
+{% for server in dc1_model.settings.ntp_servers %}
+    - name: {{ server }}
+{% endfor %}
+
+# Symmetric IRB via EVPN doesn't need a per-VRF transport SVI, so the
+# L3VNI placeholder VLAN in NetBox (reserved for Nexus as Code, which
+# does need one) has nothing to map to here -- only VLANs with a VNI
+# become AVD SVIs.
+tenants:
+{% for vrf in dc1_model.vrfs %}
+  - name: {{ vrf.tenant }}
+    vrfs:
+      - name: {{ vrf.name }}
+        vrf_vni: {{ vrf.vni }}
+        rd_override: "{{ vrf.rd }}"
+        svis:
+{% for vlan in dc1_model.vlans | selectattr('vni', 'ne', none) %}
+          - id: {{ vlan.vid }}
+            name: {{ vlan.name }}
+            vni_override: {{ vlan.vni }}
+            ip_address_virtual: "{{ vlan.gateway }}"
+{% endfor %}
+{% endfor %}

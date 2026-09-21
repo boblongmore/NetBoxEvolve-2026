@@ -1,0 +1,48 @@
+---
+# Rendered from https://blnetbox.lab.local (exported 2026-09-21T18:19:09Z).
+# Do not hand-edit -- re-run nb-playbooks/export-model.yml then
+# avd-playbooks/render-clab.yml instead.
+name: dc1-arista
+
+# Pinned to the "management" pool from NetBox -- clab and NetBox must
+# agree on every device's address.
+mgmt:
+  network: clab-dc1-mgmt
+  ipv4-subnet: "172.20.21.0/24"
+
+topology:
+  kinds:
+    arista_ceos:
+      image: ceos:4.32.0F
+
+  nodes:
+    dc1-leaf1:
+      kind: arista_ceos
+      mgmt-ipv4: 172.20.21.13
+    dc1-leaf2:
+      kind: arista_ceos
+      mgmt-ipv4: 172.20.21.14
+    dc1-leaf3:
+      kind: arista_ceos
+      mgmt-ipv4: 172.20.21.15
+    dc1-leaf4:
+      kind: arista_ceos
+      mgmt-ipv4: 172.20.21.16
+    dc1-spine1:
+      kind: arista_ceos
+      mgmt-ipv4: 172.20.21.11
+    dc1-spine2:
+      kind: arista_ceos
+      mgmt-ipv4: 172.20.21.12
+
+  links:
+    - endpoints: ["dc1-leaf1:eth1", "dc1-spine1:eth1"]
+    - endpoints: ["dc1-leaf1:eth2", "dc1-spine2:eth1"]
+    - endpoints: ["dc1-leaf2:eth1", "dc1-spine1:eth2"]
+    - endpoints: ["dc1-leaf2:eth2", "dc1-spine2:eth2"]
+    - endpoints: ["dc1-leaf3:eth1", "dc1-spine1:eth3"]
+    - endpoints: ["dc1-leaf3:eth2", "dc1-spine2:eth3"]
+    - endpoints: ["dc1-leaf4:eth1", "dc1-spine1:eth4"]
+    - endpoints: ["dc1-leaf4:eth2", "dc1-spine2:eth4"]
+    - endpoints: ["dc1-leaf1:eth7", "dc1-leaf2:eth7"]
+    - endpoints: ["dc1-leaf1:eth8", "dc1-leaf2:eth8"]

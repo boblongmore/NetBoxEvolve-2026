@@ -1,0 +1,25 @@
+---
+# Rendered from https://blnetbox.lab.local (exported 2026-09-21T19:33:56Z).
+# Do not hand-edit -- re-run nb-playbooks/export-model.yml then
+# avd-playbooks/render-avd-vars.yml instead.
+type: spine
+
+spine:
+  defaults:
+    platform: cEOSLab
+    bgp_as: 65001
+    loopback_ipv4_pool: 10.0.0.0/24
+    # This cEOS image names its OOB interface Management0, not the AVD/
+    # real-hardware default of Management1. Set here (node_config, via
+    # type defaults) rather than the fabric-wide mgmt_interface_settings/
+    # mgmt_interface vars, which this AVD version doesn't apply to the
+    # generated interface name -- confirmed by testing both.
+    mgmt_interface: Management0
+
+  nodes:
+    - name: dc1-spine1
+      id: 1
+      mgmt_ip: 172.20.21.11/24
+    - name: dc1-spine2
+      id: 2
+      mgmt_ip: 172.20.21.12/24
