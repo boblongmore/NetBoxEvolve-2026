@@ -1,0 +1,86 @@
+---
+- name: Ensure prefix roles are present
+  netbox.netbox.netbox_ipam_role:
+    data:
+      name: "{{ item.name }}"
+      description: "{{ item.description | default(omit) }}"
+    state: present
+  loop: "{{ prefix_roles }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: ipam_result
+  until: ipam_result is succeeded
+  retries: 3
+  delay: 3
+  delegate_to: localhost
+
+- name: Ensure ASNs are present
+  netbox.netbox.netbox_asn:
+    data:
+      asn: "{{ item.asn }}"
+      rir: "{{ item.rir }}"
+      description: "{{ item.description | default(omit) }}"
+    state: present
+  loop: "{{ asns }}"
+  loop_control:
+    label: "{{ item.asn }}"
+  register: ipam_asn_result
+  until: ipam_asn_result is succeeded
+  retries: 3
+  delay: 3
+  delegate_to: localhost
+
+# netbox_asn has no "site" option and netbox_site's "asn" field was removed
+# in NetBox 4.2+ in favor of the Site.asns many-to-many relation, which
+# neither module exposes yet. This is the one place the model needs a raw
+# API call instead of a netbox.netbox module.
+- name: Look up the current site record for each ASN that names a site
+  ansible.builtin.uri:
+    url: "{{ netbox_api }}/api/dcim/sites/?name={{ item.item.site }}"
+    headers:
+      Authorization: "Token {{ netbox_token }}"
+    validate_certs: false
+  loop: "{{ ipam_asn_result.results }}"
+  loop_control:
+    label: "{{ item.item.asn }}"
+  when: item.item.site is defined
+  register: ipam_site_lookup
+  delegate_to: localhost
+
+- name: Attach each ASN to its site
+  ansible.builtin.uri:
+    url: "{{ ipam_site_lookup.results[ansible_loop.index0].json.results[0].url }}"
+    method: PATCH
+    headers:
+      Authorization: "Token {{ netbox_token }}"
+    body_format: json
+    body:
+      asns: "{{ (ipam_site_lookup.results[ansible_loop.index0].json.results[0].asns
+                 | default([]) | map(attribute='id') | list
+                 + [item.asn.id]) | unique }}"
+    validate_certs: false
+  loop: "{{ ipam_asn_result.results }}"
+  loop_control:
+    label: "{{ item.item.asn }}"
+    extended: true
+  when: item.item.site is defined
+  delegate_to: localhost
+
+- name: Ensure prefix pools are present
+  netbox.netbox.netbox_prefix:
+    data:
+      prefix: "{{ item.prefix }}"
+      scope_type: "{{ item.scope_type }}"
+      scope: "{{ item.scope }}"
+      prefix_role: "{{ item.prefix_role }}"
+      is_pool: "{{ item.is_pool | default(omit) }}"
+      description: "{{ item.description | default(omit) }}"
+    state: present
+  loop: "{{ prefix_pools }}"
+  loop_control:
+    label: "{{ item.prefix }}"
+  register: ipam_result
+  until: ipam_result is succeeded
+  retries: 3
+  delay: 3
+  delegate_to: localhost

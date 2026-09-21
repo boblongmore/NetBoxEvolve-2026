@@ -1,0 +1,62 @@
+---
+- name: Ensure manufacturers are present
+  netbox.netbox.netbox_manufacturer:
+    data:
+      name: "{{ item.name }}"
+    state: present
+  loop: "{{ manufacturers }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: device_types_result
+  until: device_types_result is succeeded
+  retries: 3
+  delay: 3
+  delegate_to: localhost
+
+- name: Ensure platforms are present
+  netbox.netbox.netbox_platform:
+    data:
+      name: "{{ item.name }}"
+      manufacturer: "{{ item.manufacturer }}"
+    state: present
+  loop: "{{ platforms }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: device_types_result
+  until: device_types_result is succeeded
+  retries: 3
+  delay: 3
+  delegate_to: localhost
+
+- name: Ensure device types are present
+  netbox.netbox.netbox_device_type:
+    data:
+      model: "{{ item.model }}"
+      manufacturer: "{{ item.manufacturer }}"
+      u_height: "{{ item.u_height | default(omit) }}"
+    state: present
+  loop: "{{ device_types }}"
+  loop_control:
+    label: "{{ item.model }}"
+  register: device_types_result
+  until: device_types_result is succeeded
+  retries: 3
+  delay: 3
+  delegate_to: localhost
+
+- name: Ensure interface templates are present on device types
+  netbox.netbox.netbox_device_interface_template:
+    data:
+      device_type: "{{ item.device_type }}"
+      name: "{{ item.name }}"
+      type: "{{ item.type }}"
+      mgmt_only: "{{ item.mgmt_only | default(omit) }}"
+    state: present
+  loop: "{{ interface_templates }}"
+  loop_control:
+    label: "{{ item.device_type }}:{{ item.name }}"
+  register: device_types_result
+  until: device_types_result is succeeded
+  retries: 3
+  delay: 3
+  delegate_to: localhost

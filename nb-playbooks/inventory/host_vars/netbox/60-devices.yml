@@ -1,0 +1,63 @@
+---
+# Serials are synthetic -- the model is right, the data is fake. Nexus as
+# Code mandates serial_number; AVD never reads it.
+#
+# mgmt_ip must match clab/dc1-arista.clab.yml exactly, the same way the
+# sibling capitalone-avd-poc project pins clab mgmt to its NetBox prefix.
+devices:
+  - name: dc1-spine1
+    role: spine
+    position: 40
+    serial: DEMO0000001
+    mgmt_ip: 172.20.21.11/24
+    node_id: 1
+
+  - name: dc1-spine2
+    role: spine
+    position: 39
+    serial: DEMO0000002
+    mgmt_ip: 172.20.21.12/24
+    node_id: 2
+
+  - name: dc1-leaf1
+    role: leaf
+    position: 4
+    serial: DEMO0000003
+    mgmt_ip: 172.20.21.13/24
+    node_id: 3
+    mlag_domain_id: 1
+
+  - name: dc1-leaf2
+    role: leaf
+    position: 3
+    serial: DEMO0000004
+    mgmt_ip: 172.20.21.14/24
+    node_id: 4
+    mlag_domain_id: 1
+
+  - name: dc1-leaf3
+    role: leaf
+    position: 2
+    serial: DEMO0000005
+    mgmt_ip: 172.20.21.15/24
+    node_id: 5
+
+  - name: dc1-leaf4
+    role: leaf
+    position: 1
+    serial: DEMO0000006
+    mgmt_ip: 172.20.21.16/24
+    node_id: 6
+
+# The vPC/MLAG VTEP VIP -- Nexus as Code's mandatory vpc_peers[].vtep_vip.
+# Deliberately the only VTEP-related address stored: everything else is
+# computed (AVD) or allocated (NDFC) from the vtep-loopback pool.
+#
+# Modeled as a single unassigned IP address (role Anycast) rather than the
+# same address on both peers' Loopback1 -- the VIP belongs to the pair, not
+# to either individual interface, and it keeps the object trivially
+# idempotent.
+mlag_vtep_vip:
+  address: 10.0.1.101/32
+  mlag_domain_id: 1
+  description: MLAG/vPC VTEP VIP for dc1-leaf1/dc1-leaf2 (mlag_domain_id 1).

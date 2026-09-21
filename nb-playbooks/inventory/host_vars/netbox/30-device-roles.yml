@@ -1,0 +1,16 @@
+---
+# "border" and "edge-router" are created now but assigned to no device
+# until a later phase adds a border leaf -- additive, not a rework.
+device_roles:
+  - name: spine
+    color: "e91e63"
+    vm_role: false
+  - name: leaf
+    color: "4caf50"
+    vm_role: false
+  - name: border
+    color: "ff9800"
+    vm_role: false
+  - name: edge-router
+    color: "795548"
+    vm_role: false

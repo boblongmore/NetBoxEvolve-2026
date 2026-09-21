@@ -1,0 +1,24 @@
+---
+# The only 3 custom fields this model needs. Everything else fabric-wide
+# lives in config contexts (see 80-contexts.yml), not custom fields.
+custom_fields:
+  - name: node_id
+    object_types: [dcim.device]
+    type: integer
+    description: >-
+      Stable per-device identity consumed by Arista AVD (nodes[].id) to derive
+      pool offsets. Not used by Nexus as Code.
+
+  - name: mlag_domain_id
+    object_types: [dcim.device]
+    type: integer
+    description: >-
+      Devices sharing a value form an MLAG (AVD) / vPC (Nexus as Code) pair.
+      Also doubles as the vPC domain id.
+
+  - name: vni
+    object_types: [ipam.vlan, ipam.vrf]
+    type: integer
+    description: >-
+      Explicit L2VNI (on a VLAN) or L3VNI (on a VRF). Required and
+      range-validated by Nexus as Code; optional override for AVD.

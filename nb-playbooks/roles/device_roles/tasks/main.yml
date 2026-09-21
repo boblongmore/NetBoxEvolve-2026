@@ -1,0 +1,16 @@
+---
+- name: Ensure device roles are present
+  netbox.netbox.netbox_device_role:
+    data:
+      name: "{{ item.name }}"
+      color: "{{ item.color | default(omit) }}"
+      vm_role: "{{ item.vm_role | default(omit) }}"
+    state: present
+  loop: "{{ device_roles }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: device_roles_result
+  until: device_roles_result is succeeded
+  retries: 3
+  delay: 3
+  delegate_to: localhost

@@ -1,0 +1,18 @@
+---
+- name: Ensure config contexts are present
+  netbox.netbox.netbox_config_context:
+    data:
+      name: "{{ item.name }}"
+      weight: "{{ item.weight | default(omit) }}"
+      description: "{{ item.description | default(omit) }}"
+      sites: "{{ item.sites | default(omit) }}"
+      data: "{{ item.data }}"
+    state: present
+  loop: "{{ config_contexts }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: contexts_result
+  until: contexts_result is succeeded
+  retries: 3
+  delay: 3
+  delegate_to: localhost

@@ -1,0 +1,31 @@
+---
+- name: Ensure tenants are present
+  netbox.netbox.netbox_tenant:
+    data:
+      name: "{{ item.name }}"
+      description: "{{ item.description | default(omit) }}"
+    state: present
+  loop: "{{ tenants }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: tenancy_result
+  until: tenancy_result is succeeded
+  retries: 3
+  delay: 3
+  delegate_to: localhost
+
+- name: Ensure tags are present
+  netbox.netbox.netbox_tag:
+    data:
+      name: "{{ item.name }}"
+      color: "{{ item.color | default(omit) }}"
+      description: "{{ item.description | default(omit) }}"
+    state: present
+  loop: "{{ tags }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: tenancy_result
+  until: tenancy_result is succeeded
+  retries: 3
+  delay: 3
+  delegate_to: localhost

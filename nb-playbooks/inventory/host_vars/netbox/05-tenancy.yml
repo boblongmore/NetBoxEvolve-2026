@@ -1,0 +1,15 @@
+---
+tenants:
+  - name: TENANT1
+    description: Demo tenant carried by the fabric's L2/L3 services.
+
+tags:
+  - name: svc-tenant1
+    color: "2196f3"
+    description: Marks the VRF, VLANs and devices that carry TENANT1 services.
+  # Already exists in this NetBox instance from the netbox_configure project;
+  # values below match its current color/description exactly so this task
+  # stays a no-op rather than fighting over ownership of a shared tag.
+  - name: managed-by-ansible
+    color: "0000ff"
+    description: ""

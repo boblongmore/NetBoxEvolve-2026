@@ -9,3 +9,8 @@ use_default_rules: true
 
 skip_list:
   - yaml[line-length]  # enforced by yamllint instead
+  # False positive: every nb-playbooks role relies on the play-level
+  # module_defaults group (netbox_url/netbox_token) set in load-model.yml.
+  # ansible-lint checks roles in isolation and can't see that, so it always
+  # flags these as missing -- they aren't, at runtime.
+  - args[module]

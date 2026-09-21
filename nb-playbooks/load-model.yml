@@ -1,0 +1,61 @@
+---
+- name: Load the DC1 (Arista) data model into NetBox
+  hosts: netbox
+  gather_facts: false
+
+  module_defaults:
+    group/netbox.netbox.netbox:
+      netbox_url: "{{ netbox_api }}"
+      netbox_token: "{{ netbox_token }}"
+      validate_certs: false
+
+  tasks:
+    - name: Custom fields
+      ansible.builtin.include_role:
+        name: custom_fields
+      tags: custom_fields
+
+    - name: Tenancy (tenants, tags)
+      ansible.builtin.include_role:
+        name: tenancy
+      tags: tenancy
+
+    - name: Sites and racks
+      ansible.builtin.include_role:
+        name: sites
+      tags: sites
+
+    - name: Device types (manufacturer, platform, device type, interface templates)
+      ansible.builtin.include_role:
+        name: device_types
+      tags: device_types
+
+    - name: Device roles
+      ansible.builtin.include_role:
+        name: device_roles
+      tags: device_roles
+
+    - name: IPAM (ASN, prefix roles, prefix pools)
+      ansible.builtin.include_role:
+        name: ipam
+      tags: ipam
+
+    - name: Overlay (VLAN groups, VLANs, VRF, service prefixes)
+      ansible.builtin.include_role:
+        name: overlay
+      tags: overlay
+
+    - name: Devices
+      ansible.builtin.include_role:
+        name: devices
+      tags: devices
+
+    - name: Cables
+      ansible.builtin.include_role:
+        name: cables
+      tags: cables
+
+    - name: Config contexts
+      ansible.builtin.include_role:
+        name: contexts
+      tags: contexts

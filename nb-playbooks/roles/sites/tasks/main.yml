@@ -1,0 +1,34 @@
+---
+- name: Ensure sites are present
+  netbox.netbox.netbox_site:
+    data:
+      name: "{{ item.name }}"
+      status: "{{ item.status | default(omit) }}"
+      description: "{{ item.description | default(omit) }}"
+    state: present
+  loop: "{{ sites }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: sites_result
+  until: sites_result is succeeded
+  retries: 3
+  delay: 3
+  delegate_to: localhost
+
+- name: Ensure racks are present
+  netbox.netbox.netbox_rack:
+    data:
+      name: "{{ item.name }}"
+      site: "{{ item.site }}"
+      status: "{{ item.status | default(omit) }}"
+      width: "{{ item.width | default(omit) }}"
+      u_height: "{{ item.u_height | default(omit) }}"
+    state: present
+  loop: "{{ racks }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: sites_result
+  until: sites_result is succeeded
+  retries: 3
+  delay: 3
+  delegate_to: localhost

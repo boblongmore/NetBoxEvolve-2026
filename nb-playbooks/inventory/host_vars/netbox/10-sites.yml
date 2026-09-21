@@ -1,0 +1,13 @@
+---
+# Site = Fabric. DC1 is the Arista half of the demo, deployed live.
+sites:
+  - name: dc1
+    status: active
+    description: L3 VXLAN EVPN fabric -- Arista AVD, deployed live via containerlab.
+
+racks:
+  - name: dc1-r01
+    site: dc1
+    status: active
+    width: 19
+    u_height: 42

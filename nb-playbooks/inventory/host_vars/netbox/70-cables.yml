@@ -1,0 +1,44 @@
+---
+# The entire DC1 topology: 8 underlay links + 2 peer-link members. Uplinks
+# and peer-links are read back from this cable graph by every renderer --
+# never hand-listed a second time anywhere else.
+cables:
+  - kind: underlay
+    a: {device: dc1-leaf1, interface: Ethernet1}
+    b: {device: dc1-spine1, interface: Ethernet1}
+  - kind: underlay
+    a: {device: dc1-leaf1, interface: Ethernet2}
+    b: {device: dc1-spine2, interface: Ethernet1}
+  - kind: underlay
+    a: {device: dc1-leaf2, interface: Ethernet1}
+    b: {device: dc1-spine1, interface: Ethernet2}
+  - kind: underlay
+    a: {device: dc1-leaf2, interface: Ethernet2}
+    b: {device: dc1-spine2, interface: Ethernet2}
+  - kind: underlay
+    a: {device: dc1-leaf3, interface: Ethernet1}
+    b: {device: dc1-spine1, interface: Ethernet3}
+  - kind: underlay
+    a: {device: dc1-leaf3, interface: Ethernet2}
+    b: {device: dc1-spine2, interface: Ethernet3}
+  - kind: underlay
+    a: {device: dc1-leaf4, interface: Ethernet1}
+    b: {device: dc1-spine1, interface: Ethernet4}
+  - kind: underlay
+    a: {device: dc1-leaf4, interface: Ethernet2}
+    b: {device: dc1-spine2, interface: Ethernet4}
+  - kind: peer_link
+    a: {device: dc1-leaf1, interface: Ethernet7}
+    b: {device: dc1-leaf2, interface: Ethernet7}
+  - kind: peer_link
+    a: {device: dc1-leaf1, interface: Ethernet8}
+    b: {device: dc1-leaf2, interface: Ethernet8}
+
+# Port-Channel1 bundles the peer-link members on both MLAG peers.
+lag_interfaces:
+  - device: dc1-leaf1
+    name: Port-Channel1
+    members: [Ethernet7, Ethernet8]
+  - device: dc1-leaf2
+    name: Port-Channel1
+    members: [Ethernet7, Ethernet8]

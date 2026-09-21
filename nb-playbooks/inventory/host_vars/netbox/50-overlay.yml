@@ -1,0 +1,64 @@
+---
+# These vid_ranges ARE Nexus as Code's layer2_vlan_range / layer3_vlan_range
+# (global.ibgp) -- native NetBox carries what the old repo needed a custom
+# object type for.
+vlan_groups:
+  - name: dc1-l2vni
+    scope_type: dcim.site
+    scope: dc1
+    vid_ranges: [[100, 199]]
+  - name: dc1-l3vni
+    scope_type: dcim.site
+    scope: dc1
+    vid_ranges: [[2000, 2099]]
+
+vlans:
+  - name: TENANT1-APP
+    vid: 110
+    site: dc1
+    vlan_group: dc1-l2vni
+    tenant: TENANT1
+    tags: [svc-tenant1]
+    custom_fields:
+      vni: 10110
+  - name: TENANT1-WEB
+    vid: 120
+    site: dc1
+    vlan_group: dc1-l2vni
+    tenant: TENANT1
+    tags: [svc-tenant1]
+    custom_fields:
+      vni: 10120
+  - name: TENANT1-L3VNI
+    vid: 2001
+    site: dc1
+    vlan_group: dc1-l3vni
+    tenant: TENANT1
+    tags: [svc-tenant1]
+    description: Transport VLAN for VRF TENANT1's L3VNI SVI (VNI lives on the VRF, not here).
+
+vrfs:
+  - name: TENANT1
+    rd: "65001:50001"
+    tenant: TENANT1
+    tags: [svc-tenant1]
+    custom_fields:
+      vni: 50001
+
+# Anycast gateway = first usable address, by convention (.1) -- no separate
+# "gateway" field to maintain.
+service_prefixes:
+  - prefix: 10.10.110.0/24
+    scope_type: dcim.site
+    scope: dc1
+    vrf: TENANT1
+    vlan: TENANT1-APP
+    tenant: TENANT1
+    tags: [svc-tenant1]
+  - prefix: 10.10.120.0/24
+    scope_type: dcim.site
+    scope: dc1
+    vrf: TENANT1
+    vlan: TENANT1-WEB
+    tenant: TENANT1
+    tags: [svc-tenant1]

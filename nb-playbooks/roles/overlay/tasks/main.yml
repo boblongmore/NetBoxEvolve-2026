@@ -1,0 +1,76 @@
+---
+- name: Ensure VLAN groups are present
+  netbox.netbox.netbox_vlan_group:
+    data:
+      name: "{{ item.name }}"
+      scope_type: "{{ item.scope_type }}"
+      scope: "{{ item.scope }}"
+      vid_ranges: "{{ item.vid_ranges }}"
+    state: present
+  loop: "{{ vlan_groups }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: overlay_result
+  until: overlay_result is succeeded
+  retries: 3
+  delay: 3
+  delegate_to: localhost
+
+- name: Ensure VLANs are present
+  netbox.netbox.netbox_vlan:
+    data:
+      name: "{{ item.name }}"
+      vid: "{{ item.vid }}"
+      site: "{{ item.site }}"
+      vlan_group: "{{ item.vlan_group }}"
+      tenant: "{{ item.tenant | default(omit) }}"
+      tags: "{{ item.tags | default(omit) }}"
+      description: "{{ item.description | default(omit) }}"
+      custom_fields: "{{ item.custom_fields | default(omit) }}"
+    state: present
+  loop: "{{ vlans }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: overlay_result
+  until: overlay_result is succeeded
+  retries: 3
+  delay: 3
+  delegate_to: localhost
+
+- name: Ensure VRFs are present
+  netbox.netbox.netbox_vrf:
+    data:
+      name: "{{ item.name }}"
+      rd: "{{ item.rd | default(omit) }}"
+      tenant: "{{ item.tenant | default(omit) }}"
+      tags: "{{ item.tags | default(omit) }}"
+      custom_fields: "{{ item.custom_fields | default(omit) }}"
+    state: present
+  loop: "{{ vrfs }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: overlay_result
+  until: overlay_result is succeeded
+  retries: 3
+  delay: 3
+  delegate_to: localhost
+
+- name: Ensure service prefixes are present
+  netbox.netbox.netbox_prefix:
+    data:
+      prefix: "{{ item.prefix }}"
+      scope_type: "{{ item.scope_type }}"
+      scope: "{{ item.scope }}"
+      vrf: "{{ item.vrf }}"
+      vlan: "{{ item.vlan }}"
+      tenant: "{{ item.tenant | default(omit) }}"
+      tags: "{{ item.tags | default(omit) }}"
+    state: present
+  loop: "{{ service_prefixes }}"
+  loop_control:
+    label: "{{ item.prefix }}"
+  register: overlay_result
+  until: overlay_result is succeeded
+  retries: 3
+  delay: 3
+  delegate_to: localhost

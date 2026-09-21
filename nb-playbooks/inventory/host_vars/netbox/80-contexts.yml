@@ -1,0 +1,32 @@
+---
+# Two layers, which itself demonstrates the thesis: fabric-common carries
+# the shared control plane, dc1-fabric only what differs per site. Native
+# NetBox config contexts replace the old repo's avd_fabric_data custom
+# object type entirely.
+config_contexts:
+  - name: fabric-common
+    weight: 1000
+    description: Shared control-plane settings for every fabric in this project.
+    data:
+      underlay: ospf
+      overlay: ibgp
+      replication: ingress
+      anycast_gateway_mac: "00:1c:73:00:dc:01"
+      p2p_mtu: 9214
+      l2vni_range: "10000-19999"
+      l3vni_range: "50000-59999"
+      vpc:
+        peer_link_po: 1
+        peer_link_vlan: 3600
+        keepalive_vrf: management
+        auto_recovery_time: 360
+
+  - name: dc1-fabric
+    weight: 1100
+    sites: [dc1]
+    description: DC1-specific fabric settings (Arista).
+    data:
+      fabric_name: DC1
+      mgmt_gateway: 172.20.21.1
+      dns_servers: ["172.20.21.1"]
+      ntp_servers: ["172.20.21.1"]

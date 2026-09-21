@@ -1,0 +1,7 @@
+---
+# Overridable per include_role call so this same role serves DC2 in a
+# later phase without a rewrite.
+devices_site: dc1
+devices_rack: dc1-r01
+devices_device_type: cEOS
+devices_platform: ceos

@@ -1,0 +1,56 @@
+---
+# Manufacturer, platform and device type all already exist in this NetBox
+# instance (from the netbox_configure/avd-poc project) with zero interface
+# templates defined on the device type. Reusing them rather than creating
+# near-duplicates: "cEOS" / "ceos" is the same physical/software reality
+# either project would model.
+manufacturers:
+  - name: Arista
+
+platforms:
+  - name: ceos
+    manufacturer: Arista
+
+device_types:
+  - model: cEOS
+    manufacturer: Arista
+    u_height: 1
+
+# One device type carries interfaces for every device that uses it --
+# NetBox instantiates these automatically when a device is created, so no
+# per-device interface list is needed anywhere in this project.
+interface_templates:
+  - device_type: cEOS
+    name: Management0
+    type: 1000base-t
+    mgmt_only: true
+  - device_type: cEOS
+    name: Ethernet1
+    type: 10gbase-x-sfpp
+  - device_type: cEOS
+    name: Ethernet2
+    type: 10gbase-x-sfpp
+  - device_type: cEOS
+    name: Ethernet3
+    type: 10gbase-x-sfpp
+  - device_type: cEOS
+    name: Ethernet4
+    type: 10gbase-x-sfpp
+  - device_type: cEOS
+    name: Ethernet5
+    type: 10gbase-x-sfpp
+  - device_type: cEOS
+    name: Ethernet6
+    type: 10gbase-x-sfpp
+  - device_type: cEOS
+    name: Ethernet7
+    type: 10gbase-x-sfpp
+  - device_type: cEOS
+    name: Ethernet8
+    type: 10gbase-x-sfpp
+  - device_type: cEOS
+    name: Loopback0
+    type: virtual
+  - device_type: cEOS
+    name: Loopback1
+    type: virtual

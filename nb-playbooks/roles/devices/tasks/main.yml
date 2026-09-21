@@ -1,0 +1,72 @@
+---
+- name: Ensure devices are present
+  netbox.netbox.netbox_device:
+    data:
+      name: "{{ item.name }}"
+      device_role: "{{ item.role }}"
+      device_type: "{{ devices_device_type }}"
+      platform: "{{ devices_platform }}"
+      site: "{{ devices_site }}"
+      rack: "{{ devices_rack }}"
+      position: "{{ item.position }}"
+      face: front
+      serial: "{{ item.serial }}"
+      custom_fields:
+        node_id: "{{ item.node_id }}"
+        mlag_domain_id: "{{ item.mlag_domain_id | default(omit) }}"
+    state: present
+  loop: "{{ devices }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: devices_result
+  until: devices_result is succeeded
+  retries: 3
+  delay: 3
+  delegate_to: localhost
+
+- name: Assign the management IP to each device's Management0 interface
+  netbox.netbox.netbox_ip_address:
+    data:
+      address: "{{ item.mgmt_ip }}"
+      assigned_object:
+        device: "{{ item.name }}"
+        name: Management0
+    state: present
+  loop: "{{ devices }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: devices_result
+  until: devices_result is succeeded
+  retries: 3
+  delay: 3
+  delegate_to: localhost
+
+- name: Set each device's primary IPv4 address
+  netbox.netbox.netbox_device:
+    data:
+      name: "{{ item.name }}"
+      primary_ip4: "{{ item.mgmt_ip }}"
+    state: present
+  loop: "{{ devices }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: devices_result
+  until: devices_result is succeeded
+  retries: 3
+  delay: 3
+  delegate_to: localhost
+
+# Nexus as Code's mandatory vpc_peers[].vtep_vip. Unassigned by design --
+# see the comment in 60-devices.yml for why.
+- name: Ensure the MLAG/vPC VTEP VIP is present
+  netbox.netbox.netbox_ip_address:
+    data:
+      address: "{{ mlag_vtep_vip.address }}"
+      role: Anycast
+      description: "{{ mlag_vtep_vip.description }}"
+    state: present
+  register: devices_result
+  until: devices_result is succeeded
+  retries: 3
+  delay: 3
+  delegate_to: localhost

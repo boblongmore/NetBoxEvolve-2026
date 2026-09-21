@@ -1,0 +1,56 @@
+---
+- name: Ensure LAG (Port-Channel) interfaces are present
+  netbox.netbox.netbox_device_interface:
+    data:
+      device: "{{ item.device }}"
+      name: "{{ item.name }}"
+      type: lag
+    state: present
+  loop: "{{ lag_interfaces }}"
+  loop_control:
+    label: "{{ item.device }}:{{ item.name }}"
+  register: cables_result
+  until: cables_result is succeeded
+  retries: 3
+  delay: 3
+  delegate_to: localhost
+
+- name: Bundle LAG member interfaces under their Port-Channel
+  netbox.netbox.netbox_device_interface:
+    data:
+      device: "{{ item.0.device }}"
+      name: "{{ item.1 }}"
+      lag:
+        device: "{{ item.0.device }}"
+        name: "{{ item.0.name }}"
+    state: present
+  loop: "{{ lag_interfaces | subelements('members') }}"
+  loop_control:
+    label: "{{ item.0.device }}:{{ item.1 }}"
+  register: cables_result
+  until: cables_result is succeeded
+  retries: 3
+  delay: 3
+  delegate_to: localhost
+
+- name: Ensure cables are present
+  netbox.netbox.netbox_cable:
+    data:
+      termination_a_type: dcim.interface
+      termination_a:
+        device: "{{ item.a.device }}"
+        name: "{{ item.a.interface }}"
+      termination_b_type: dcim.interface
+      termination_b:
+        device: "{{ item.b.device }}"
+        name: "{{ item.b.interface }}"
+      status: connected
+    state: present
+  loop: "{{ cables }}"
+  loop_control:
+    label: "{{ item.a.device }}:{{ item.a.interface }} <-> {{ item.b.device }}:{{ item.b.interface }}"
+  register: cables_result
+  until: cables_result is succeeded
+  retries: 3
+  delay: 3
+  delegate_to: localhost

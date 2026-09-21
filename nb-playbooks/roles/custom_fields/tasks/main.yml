@@ -1,0 +1,17 @@
+---
+- name: Ensure custom fields are present
+  netbox.netbox.netbox_custom_field:
+    data:
+      name: "{{ item.name }}"
+      object_types: "{{ item.object_types }}"
+      type: "{{ item.type }}"
+      description: "{{ item.description | default(omit) }}"
+    state: present
+  loop: "{{ custom_fields }}"
+  loop_control:
+    label: "{{ item.name }}"
+  register: custom_fields_result
+  until: custom_fields_result is succeeded
+  retries: 3
+  delay: 3
+  delegate_to: localhost

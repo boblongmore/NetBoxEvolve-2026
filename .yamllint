@@ -15,3 +15,4 @@ ignore:
   - .venv/
   - build/
   - clab/clab-*/
+  - nb-playbooks/inventory/group_vars/all/vault.yml  # vault-encrypted, not plain YAML
