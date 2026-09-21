@@ -1,0 +1,6 @@
+---
+# Overridable per include_role call so this same role serves DC2 in a
+# later phase without a rewrite.
+fabric_export_site: dc1
+fabric_export_vrf_name: TENANT1
+fabric_export_out_dir: "{{ playbook_dir }}/../build"

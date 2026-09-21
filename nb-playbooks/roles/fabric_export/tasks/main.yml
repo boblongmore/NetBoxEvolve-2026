@@ -1,0 +1,283 @@
+---
+# Reads DC1 back out of NetBox and writes build/dc1-model.yml (the
+# vendor-neutral model) plus build/dc1-inventory.yml. Neither AVD nor
+# Nexus as Code talks to NetBox directly -- this is the only place that
+# reads NetBox for the render side, matching the one place in the loader
+# (roles/ipam) that had to drop to a raw API call instead of a module:
+# there is no netbox.netbox module for "read arbitrary objects back out",
+# so this whole role is ansible.builtin.uri + set_fact.
+
+- name: Only need a timestamp for the export banner, not full facts
+  ansible.builtin.setup:
+    gather_subset:
+      - "!all"
+      - "date_time"
+  delegate_to: localhost
+
+- name: Look up the site
+  ansible.builtin.uri:
+    url: "{{ netbox_api }}/api/dcim/sites/?name={{ fabric_export_site }}"
+    headers:
+      Authorization: "Token {{ netbox_token }}"
+    validate_certs: false
+  delegate_to: localhost
+  register: fabric_export_site_lookup
+
+- name: Set the site id
+  ansible.builtin.set_fact:
+    fabric_export_site_id: "{{ fabric_export_site_lookup.json.results[0].id }}"
+
+- name: Look up the fabric ASN
+  ansible.builtin.uri:
+    url: "{{ netbox_api }}/api/ipam/asns/?site_id={{ fabric_export_site_id }}"
+    headers:
+      Authorization: "Token {{ netbox_token }}"
+    validate_certs: false
+  delegate_to: localhost
+  register: fabric_export_asn_lookup
+
+- name: Look up devices with their merged config context
+  ansible.builtin.uri:
+    url: "{{ netbox_api }}/api/dcim/devices/?site={{ fabric_export_site }}&include=config_context&limit=100"
+    headers:
+      Authorization: "Token {{ netbox_token }}"
+    validate_certs: false
+  delegate_to: localhost
+  register: fabric_export_devices_lookup
+
+- name: Look up cables
+  ansible.builtin.uri:
+    url: "{{ netbox_api }}/api/dcim/cables/?site_id={{ fabric_export_site_id }}&limit=100"
+    headers:
+      Authorization: "Token {{ netbox_token }}"
+    validate_certs: false
+  delegate_to: localhost
+  register: fabric_export_cables_lookup
+
+- name: Look up prefixes scoped to the site
+  ansible.builtin.uri:
+    url: "{{ netbox_api }}/api/ipam/prefixes/?scope_type=dcim.site&scope_id={{ fabric_export_site_id }}&limit=100"
+    headers:
+      Authorization: "Token {{ netbox_token }}"
+    validate_certs: false
+  delegate_to: localhost
+  register: fabric_export_prefixes_lookup
+
+- name: Look up VLANs
+  ansible.builtin.uri:
+    url: "{{ netbox_api }}/api/ipam/vlans/?site={{ fabric_export_site }}&limit=100"
+    headers:
+      Authorization: "Token {{ netbox_token }}"
+    validate_certs: false
+  delegate_to: localhost
+  register: fabric_export_vlans_lookup
+
+- name: Look up the tenant VRF
+  ansible.builtin.uri:
+    url: "{{ netbox_api }}/api/ipam/vrfs/?name={{ fabric_export_vrf_name }}"
+    headers:
+      Authorization: "Token {{ netbox_token }}"
+    validate_certs: false
+  delegate_to: localhost
+  register: fabric_export_vrf_lookup
+
+- name: Look up the MLAG/vPC VTEP VIP
+  ansible.builtin.uri:
+    url: "{{ netbox_api }}/api/ipam/ip-addresses/?role=anycast"
+    headers:
+      Authorization: "Token {{ netbox_token }}"
+    validate_certs: false
+  delegate_to: localhost
+  register: fabric_export_vtep_vip_lookup
+
+# Current design limitation: this fabric has exactly one MLAG/vPC pair, so
+# "the only Anycast-role IP in this instance" is a safe way to find its
+# VIP. A second pair would need a real link (e.g. a custom field on the IP
+# address) instead of this shortcut -- fail loudly rather than silently
+# guessing wrong if that ever changes.
+- name: Assert exactly one MLAG/vPC VTEP VIP exists
+  ansible.builtin.assert:
+    that: (fabric_export_vtep_vip_lookup.json.results | length) == 1
+    fail_msg: >-
+      Expected exactly one Anycast-role IP address (the MLAG/vPC VTEP VIP),
+      found {{ fabric_export_vtep_vip_lookup.json.results | length }}.
+      This export assumes a single MLAG/vPC pair.
+
+- name: Normalize the device list
+  ansible.builtin.set_fact:
+    fabric_export_devices_raw: "{{ fabric_export_devices_raw | default([]) + [device_entry] }}"
+  loop: "{{ fabric_export_devices_lookup.json.results }}"
+  loop_control:
+    label: "{{ item.name }}"
+  vars:
+    device_entry:
+      name: "{{ item.name }}"
+      role: "{{ item.role.name }}"
+      serial: "{{ item.serial }}"
+      mgmt_ip: "{{ item.primary_ip4.address }}"
+      tags: "{{ item.tags | map(attribute='name') | list }}"
+      node_id: "{{ item.custom_fields.node_id }}"
+      mlag_domain_id: "{{ item.custom_fields.mlag_domain_id }}"
+
+- name: Build the clean cable list
+  ansible.builtin.set_fact:
+    fabric_export_cables: "{{ fabric_export_cables | default([]) + [cable_entry] }}"
+  loop: "{{ fabric_export_cables_lookup.json.results }}"
+  loop_control:
+    label: "cable {{ item.id }}"
+  vars:
+    a_device: "{{ item.a_terminations[0].object.device.name }}"
+    a_iface: "{{ item.a_terminations[0].object.name }}"
+    b_device: "{{ item.b_terminations[0].object.device.name }}"
+    b_iface: "{{ item.b_terminations[0].object.name }}"
+    a_role: "{{ fabric_export_devices_raw | selectattr('name', 'equalto', a_device) | map(attribute='role') | first }}"
+    b_role: "{{ fabric_export_devices_raw | selectattr('name', 'equalto', b_device) | map(attribute='role') | first }}"
+    cable_entry:
+      kind: "{{ 'peer_link' if a_role == b_role else 'underlay' }}"
+      a: {device: "{{ a_device }}", interface: "{{ a_iface }}"}
+      b: {device: "{{ b_device }}", interface: "{{ b_iface }}"}
+
+# A cable connects two devices without regard to direction, but "give me
+# this device's links" is much simpler against a list with one entry per
+# direction. This bidirectional list is scratch data for the next two
+# tasks -- it isn't part of the final model.
+- name: Build a bidirectional lookup of the cable graph
+  ansible.builtin.set_fact:
+    fabric_export_links: "{{ fabric_export_links | default([]) + [link_a_to_b, link_b_to_a] }}"
+  loop: "{{ fabric_export_cables }}"
+  loop_control:
+    label: "{{ item.a.device }} <-> {{ item.b.device }}"
+  vars:
+    link_a_to_b:
+      device: "{{ item.a.device }}"
+      interface: "{{ item.a.interface }}"
+      peer_device: "{{ item.b.device }}"
+      peer_interface: "{{ item.b.interface }}"
+      kind: "{{ item.kind }}"
+    link_b_to_a:
+      device: "{{ item.b.device }}"
+      interface: "{{ item.b.interface }}"
+      peer_device: "{{ item.a.device }}"
+      peer_interface: "{{ item.a.interface }}"
+      kind: "{{ item.kind }}"
+
+- name: Attach each device's derived underlay uplinks
+  ansible.builtin.set_fact:
+    fabric_export_devices: "{{ fabric_export_devices | default([]) + [item | combine({'uplinks': device_uplinks})] }}"
+  loop: "{{ fabric_export_devices_raw }}"
+  loop_control:
+    label: "{{ item.name }}"
+  vars:
+    device_uplinks: "{{ fabric_export_links
+                         | selectattr('device', 'equalto', item.name)
+                         | selectattr('kind', 'equalto', 'underlay')
+                         | list }}"
+
+- name: Build the MLAG/vPC pairs list
+  ansible.builtin.set_fact:
+    fabric_export_mlag_pairs: "{{ fabric_export_mlag_pairs | default([]) + [mlag_pair_entry] }}"
+  loop: "{{ fabric_export_devices_raw
+            | selectattr('mlag_domain_id', 'defined')
+            | selectattr('mlag_domain_id', 'ne', None)
+            | map(attribute='mlag_domain_id') | unique | list }}"
+  loop_control:
+    loop_var: domain_id
+  vars:
+    peer_names: "{{ fabric_export_devices_raw
+                     | selectattr('mlag_domain_id', 'equalto', domain_id)
+                     | map(attribute='name') | list | sort }}"
+    peer_link_interfaces: "{{ fabric_export_links
+                               | selectattr('device', 'equalto', peer_names[0])
+                               | selectattr('kind', 'equalto', 'peer_link')
+                               | map(attribute='interface') | list }}"
+    mlag_pair_entry:
+      domain_id: "{{ domain_id }}"
+      peer1: "{{ peer_names[0] }}"
+      peer2: "{{ peer_names[1] }}"
+      peer_link_interfaces: "{{ peer_link_interfaces }}"
+      vtep_vip: "{{ fabric_export_vtep_vip_lookup.json.results[0].address }}"
+
+- name: Build the prefix pools dict
+  ansible.builtin.set_fact:
+    fabric_export_pools: "{{ fabric_export_pools | default({}) | combine({item.role.name: item.prefix}) }}"
+  loop: "{{ fabric_export_prefixes_lookup.json.results | selectattr('is_pool') }}"
+  loop_control:
+    label: "{{ item.prefix }}"
+
+- name: Build a VLAN name -> service prefix lookup
+  ansible.builtin.set_fact:
+    fabric_export_service_prefixes: "{{ fabric_export_service_prefixes | default({})
+                                         | combine({item.vlan.name: item.prefix}) }}"
+  loop: "{{ fabric_export_prefixes_lookup.json.results | rejectattr('is_pool') }}"
+  loop_control:
+    label: "{{ item.prefix }}"
+
+# Anycast gateway = first usable address, by convention -- derived here,
+# not stored anywhere in NetBox as its own field.
+- name: Build the VLANs list
+  ansible.builtin.set_fact:
+    fabric_export_vlans: "{{ fabric_export_vlans | default([]) + [vlan_entry] }}"
+  loop: "{{ fabric_export_vlans_lookup.json.results }}"
+  loop_control:
+    label: "{{ item.name }}"
+  vars:
+    vlan_gateway: "{{ fabric_export_service_prefixes[item.name] | ansible.utils.ipaddr('1')
+                       if item.name in fabric_export_service_prefixes else None }}"
+    vlan_entry:
+      name: "{{ item.name }}"
+      vid: "{{ item.vid }}"
+      vni: "{{ item.custom_fields.vni }}"
+      tenant: "{{ item.tenant.name if item.tenant else None }}"
+      tags: "{{ item.tags | map(attribute='name') | list }}"
+      service_prefix: "{{ fabric_export_service_prefixes.get(item.name) }}"
+      gateway: "{{ vlan_gateway }}"
+
+- name: Build the VRF dict
+  ansible.builtin.set_fact:
+    fabric_export_vrf:
+      name: "{{ vrf_raw.name }}"
+      rd: "{{ vrf_raw.rd }}"
+      vni: "{{ vrf_raw.custom_fields.vni }}"
+      tenant: "{{ vrf_raw.tenant.name if vrf_raw.tenant else None }}"
+      tags: "{{ vrf_raw.tags | map(attribute='name') | list }}"
+  vars:
+    vrf_raw: "{{ fabric_export_vrf_lookup.json.results[0] }}"
+
+- name: Assemble the vendor-neutral fabric model
+  ansible.builtin.set_fact:
+    fabric_export_model:
+      fabric:
+        site: "{{ fabric_export_site }}"
+        name: "{{ fabric_export_devices_lookup.json.results[0].config_context.fabric_name }}"
+        asn: "{{ fabric_export_asn_lookup.json.results[0].asn }}"
+      settings: "{{ fabric_export_devices_lookup.json.results[0].config_context }}"
+      pools: "{{ fabric_export_pools }}"
+      devices: "{{ fabric_export_devices }}"
+      mlag_pairs: "{{ fabric_export_mlag_pairs }}"
+      cables: "{{ fabric_export_cables }}"
+      vlans: "{{ fabric_export_vlans }}"
+      vrfs:
+        - "{{ fabric_export_vrf }}"
+      exported_at: "{{ ansible_date_time.iso8601 }}"
+      exported_from: "{{ netbox_api }}"
+
+- name: Ensure the build directory exists
+  ansible.builtin.file:
+    path: "{{ fabric_export_out_dir }}"
+    state: directory
+    mode: "0755"
+  delegate_to: localhost
+
+- name: Write the vendor-neutral fabric model
+  ansible.builtin.copy:
+    dest: "{{ fabric_export_out_dir }}/{{ fabric_export_site }}-model.yml"
+    content: "{{ fabric_export_model | to_nice_yaml(indent=2) }}"
+    mode: "0644"
+  delegate_to: localhost
+
+- name: Write the plain YAML Ansible inventory for the renderer
+  ansible.builtin.template:
+    src: inventory.yml.j2
+    dest: "{{ fabric_export_out_dir }}/{{ fabric_export_site }}-inventory.yml"
+    mode: "0644"
+  delegate_to: localhost

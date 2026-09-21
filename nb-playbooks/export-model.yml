@@ -1,0 +1,10 @@
+---
+- name: Export the DC1 (Arista) fabric model out of NetBox
+  hosts: netbox
+  gather_facts: false
+
+  tasks:
+    - name: Fabric export
+      ansible.builtin.include_role:
+        name: fabric_export
+      tags: fabric_export

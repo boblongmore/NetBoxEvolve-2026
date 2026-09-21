@@ -3,4 +3,5 @@ ansible-lint
 yamllint
 pyavd==6.3.0
 pynetbox
+netaddr
 anta>=1.8.0
