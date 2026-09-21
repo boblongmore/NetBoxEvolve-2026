@@ -1,5 +1,61 @@
 # Progress Log
 
+## 2026-09-21 — NetBox model loader for DC1 (Phase 2 complete)
+
+Built and ran `nb-playbooks/load-model.yml` against the live NetBox at `blnetbox.lab.local`
+(shared with the `netbox_configure`/`avd-poc` project — same instance, new site, no collisions).
+Ten roles, one per object type, in dependency order: `custom_fields`, `tenancy`, `sites`,
+`device_types`, `device_roles`, `ipam`, `overlay`, `devices`, `cables`, `contexts`. Var files
+live in `nb-playbooks/inventory/host_vars/netbox/` as numbered files (`00-custom-fields.yml`
+through `80-contexts.yml`), one per role.
+
+**Deviations from the original design, all convention-over-configuration calls made after
+checking the live instance rather than guessing:**
+- Reused the existing `Arista` manufacturer, `ceos` platform, and `cEOS` device type (not new
+  `eos`/`cEOS-lab`) — it already existed with zero interface templates, so extending it was
+  simpler than creating a near-duplicate. Added the 11 interface templates
+  (`Management0`, `Ethernet1`-`8`, `Loopback0`/`1`) to it.
+- Reused the existing private RIR `Bob Co RIR` for ASN 65001 instead of creating an `RFC6996`
+  RIR — no RFC6996 RIR existed, and this instance already has its own private-RIR convention.
+- Reused existing prefix roles `management`, `vtep-loopback`, `underlay-p2p` by name; only
+  `loopback-routerid`, `mlag-peer-l2`, `mlag-peer-l3` were newly created.
+- DC1's management subnet is `172.20.21.0/24`, not `172.20.20.0/24` — the latter is already a
+  live Docker network (`clab-mgmt`) for the existing `avd-poc` containerlab topology on this
+  same host. `clab/dc1-arista.clab.yml` (not yet written) must use `172.20.21.0/24` to match.
+- The MLAG/vPC VTEP VIP (`10.0.1.101/32`, role Anycast) is modeled as a single **unassigned**
+  IP address, not the same address assigned to both peers' Loopback1. NetBox's
+  `netbox_ip_address` module has no clean idempotent way to represent "same address on two
+  interfaces" (`state: present` would just reuse/move the one record; `state: new` would create
+  a fresh duplicate on every run). An unassigned VIP is simpler and arguably more correct
+  modeling anyway — the VIP belongs to the pair, not to either individual interface.
+- `ipam.ASN` has no `site` field and NetBox 4.2+ removed `dcim.Site.asn` in favor of a
+  `Site.asns` many-to-many relation that no `netbox.netbox` module (3.23.0) exposes yet. The
+  `ipam` role has one small `ansible.builtin.uri` GET+PATCH pair to link them — the only place
+  this project drops to a raw API call instead of a module.
+
+**Idempotency:** ran the playbook twice; second run reported zero changes except where a
+transient NetBox connection blip mid-run on the *first* attempt had left the 4 leaf devices
+not-yet-created (the 2 spines succeeded before the blip) — a re-run picked them up cleanly.
+Not a defect in the model.
+
+Both linters clean throughout (`.ansible-lint` needed one addition: `args[module]` is suppressed
+with a comment, since ansible-lint checks roles in isolation and can't see the play-level
+`module_defaults` that actually satisfies `netbox_url`/`netbox_token` at runtime).
+
+Credentials: `nb-playbooks/inventory/group_vars/all/vault.yml` is a copy of
+`netbox_configure`'s vaulted `servers.yml` (same `netbox_api`/`netbox_token` vars, still
+encrypted — reused intentionally, not duplicated by accident). `.vault_pass` was copied from
+`capitalone-avd-poc/avd-playbooks/.vault_pass` and is gitignored.
+
+### Next up — Phase 3: neutral export
+Build `nb-playbooks/export-model.yml`: read DC1 back out of NetBox (`nb_inventory` or direct API
+calls) and write `build/fabric-model.yml` (the vendor-neutral model both renderers will read)
+plus `build/dc1-inventory.yml` (plain YAML Ansible inventory, `ansible_host` = mgmt IP without
+the `/24`). Remember the known `nb_inventory` wart: it strips `primary_ip4` to a bare address,
+but AVD's `mgmt_ip` wants the CIDR mask, so an extra lookup is needed for that field specifically.
+Agree the exported schema before writing either renderer, since both `avd-playbooks` and
+`nac-playbooks` depend on it and neither should touch NetBox directly.
+
 ## 2026-09-17 — Planning + scaffold (Phase 1 complete)
 
 Planned the full project (see plan artifact from the planning session — not checked in, ask
