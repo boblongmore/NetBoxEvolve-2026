@@ -12,6 +12,8 @@ clab/clab-*/
 # AVD generated output
 avd-playbooks/intended/
 avd-playbooks/documentation/
+avd-playbooks/anta/
+avd-playbooks/config_backup/
 
 # Nexus as Code generated output
 nac-playbooks/roles/nac_inputs/files/

@@ -13,6 +13,23 @@ mgmt_gateway: {{ dc1_model.settings.mgmt_gateway }}
 # first, platform_settings second, and only then this fabric-wide var,
 # so setting it here alone had no effect. See the comment there.
 
+# Without this, the generated config has no "management api http-commands"
+# block at all, and a real config replace removes eAPI along with whatever
+# credentials happen to already exist on the box -- confirmed the hard way
+# against the live lab. ansible_user/ansible_password come from the same
+# vaulted credential already used to connect (inventory/group_vars/all/vault.yml)
+# so the fabric keeps using the identical admin account, not a second one.
+management_eapi:
+  enabled: true
+
+aaa_settings:
+  local_users:
+    - name: "{{ hostvars[groups['DC1'][0]].ansible_user }}"
+      privilege: 15
+      role: network-admin
+      cleartext_password: "{{ hostvars[groups['DC1'][0]].ansible_password }}"
+      password_type: sha512
+
 dns_settings:
   servers:
 {% for server in dc1_model.settings.dns_servers %}
@@ -36,6 +53,15 @@ tenants:
       - name: {{ vrf.name }}
         vrf_vni: {{ vrf.vni }}
         rd_override: "{{ vrf.rd }}"
+        # AVD auto-derives the MLAG-per-VRF iBGP peering VLAN from vrf_vni
+        # when vrf_id isn't set, which for a 5-digit VNI produces a VLAN ID
+        # above 4094 -- invalid, and rejected outright by EOS on config
+        # replace (confirmed against the live lab: "vlan 53000" from
+        # vrf_vni 50001). This feature is optional extra resiliency for
+        # the MLAG pair's VRF-aware routing, not required for correctness
+        # here, so it's simplest to disable it rather than plumb a second
+        # small integer identifier into the model just for this formula.
+        enable_mlag_ibgp_peering_vrfs: false
         svis:
 {% for vlan in dc1_model.vlans | selectattr('vni', 'ne', none) %}
           - id: {{ vlan.vid }}

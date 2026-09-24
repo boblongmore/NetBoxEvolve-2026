@@ -9,8 +9,12 @@ exclude_paths:
   # nb-playbooks/avd-playbooks commands are run from inside each dir.
   - intended/                     # AVD-generated output, not our code
   - documentation/                # AVD-generated output, not our code
+  - anta/                         # ANTA-generated catalogs/reports, not our code
+  - config_backup/                # eos_config_deploy_eapi backups, not our code
   - avd-playbooks/intended/
   - avd-playbooks/documentation/
+  - avd-playbooks/anta/
+  - avd-playbooks/config_backup/
 
 use_default_rules: true
 

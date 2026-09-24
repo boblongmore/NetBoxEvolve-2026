@@ -19,3 +19,5 @@ ignore:
   - avd-playbooks/inventory/group_vars/all/vault.yml  # vault-encrypted, not plain YAML
   - avd-playbooks/intended/       # AVD-generated output, not our code
   - avd-playbooks/documentation/  # AVD-generated output, not our code
+  - avd-playbooks/anta/           # ANTA-generated catalogs/reports, not our code
+  - avd-playbooks/config_backup/  # eos_config_deploy_eapi backups, not our code

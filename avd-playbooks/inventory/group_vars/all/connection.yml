@@ -6,3 +6,12 @@ ansible_httpapi_validate_certs: false
 ansible_become: true
 ansible_become_method: enable
 ansible_become_password: "{{ ansible_password }}"
+# configure replace is genuinely slow on this containerized/emulated EOS --
+# the 30s default timeout was too short and produced misleading errors
+# ("Invalid input" on some devices, plain timeouts on others) rather than
+# a clean timeout message, and even 120s wasn't quite enough for the
+# MLAG pair's larger config. Confirmed each time that the device finishes
+# applying the config successfully server-side regardless of the client
+# timing out -- this is purely about Ansible waiting long enough to see
+# the result, not a sign of anything actually failing.
+ansible_command_timeout: 240

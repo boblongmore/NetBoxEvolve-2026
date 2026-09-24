@@ -1,5 +1,62 @@
 # Progress Log
 
+## 2026-09-24 — Deployed and validated live (Phase 4 truly complete)
+
+Built `avd-playbooks/deploy.yml` (`arista.avd.eos_config_deploy_eapi`) and `validate.yml`
+(`arista.avd.anta_runner`) and ran both against the live lab. Result: **BGP EVPN established
+to both spines, MLAG up, all 4 VTEPs discovered, VXLAN/OSPF/MLAG/Routing/Connectivity/STP/
+Configuration ANTA categories 100% passing** (128/146 tests; the only 18 failures are
+Management0 discard counters, benign cEOS hardware-ID/ACL log noise, and NTP unsynchronized --
+all expected artifacts of an isolated container lab with no real NTP server, none touching
+fabric correctness).
+
+Getting there took real, live troubleshooting -- worth recording in detail since the model and
+playbooks were all correct going in; every issue below was a genuine EOS/AVD/lab behavior, not
+a repeat of an earlier mistake:
+
+1. **`configure replace` is just slow on this cEOS image.** The `eos_config_deploy_eapi` role's
+   default 30s command timeout was too short, and the failure mode was actively misleading:
+   some devices reported "Invalid input" (looked like a syntax error), others a plain timeout --
+   both were actually the same thing, confirmed by manually replaying the operation outside
+   Ansible with a long timeout and watching it succeed server-side well past 30s. Fixed by
+   setting `ansible_command_timeout: 240` in `group_vars/all/connection.yml` -- ended up needing
+   more than one bump (30s, then 120s still wasn't enough for the MLAG pair's larger config,
+   then 240s).
+2. **A genuine invalid-VLAN bug, found underneath the timeout noise.** Once timeout stopped
+   being the variable, `dc1-leaf1`/`dc1-leaf2` (the MLAG pair) kept failing with a real,
+   immediate rejection: `vlan 53000` -- above EOS's 4094 maximum. Root cause: AVD's optional
+   "MLAG iBGP peering per VRF" feature auto-derives that VLAN ID from `vrf_vni` when `vrf_id`
+   isn't set, and our VRF's 5-digit VNI (50001) pushed the formula miles out of range. Fixed by
+   setting `enable_mlag_ibgp_peering_vrfs: false` on the tenant in `fabric.yml.j2` -- simpler
+   than plumbing a second small integer identifier into the model just to satisfy this one
+   formula, and the feature is optional extra resiliency, not required for fabric correctness.
+3. **Our generated config had no way to keep itself reachable after a real replace.** Confirmed
+   the hard way: a `configure replace` had already succeeded on `dc1-spine1`, `dc1-spine2`,
+   `dc1-leaf3`, `dc1-leaf4` in the very first deploy attempt (the "invalid input"/timeout errors
+   masked this), but since our AVD input never set `management_eapi` or `aaa_settings.local_users`,
+   the replace correctly wiped eAPI and the admin account right along with everything else,
+   locking every one of those devices out of further Ansible management. Recovered via
+   `docker exec` console access (bypasses the network) on each affected device, then fixed
+   properly by adding `management_eapi.enabled: true` and an `aaa_settings.local_users` entry
+   (reusing the same vaulted `ansible_user`/`ansible_password`, via `hostvars[groups['DC1'][0]]`,
+   so the fabric keeps using the identical admin account rather than a second one) to
+   `fabric.yml.j2`.
+4. **Also self-inflicted, also recovered the same way:** manually testing `configure replace`
+   with a deliberately minimal candidate config (to reproduce the syntax error safely) removed
+   `dc1-leaf1`'s management IP and eAPI config for real, since a genuine `configure replace`
+   removes anything not present in the candidate. Recovered via console; a useful reminder that
+   testing `configure replace` against a live device is not actually a safe no-op operation.
+
+None of this required changing the underlying data model -- every fix lived in `fabric.yml.j2`
+or `connection.yml`. `nb-playbooks` and `build/dc1-model.yml` were untouched this session.
+
+### Next up
+Phase 5: DC2 (Cisco) objects in NetBox + the Nexus as Code renderer (`nac-playbooks/`),
+rendered only via `cisco.nac_dc_vxlan.validate` -- no live deployment, no Nexus Dashboard.
+Remember the `nac-playbooks` ansible.cfg will need the same inventory-symlink fix already
+applied to `avd-playbooks` (point at `inventory/` with `inventory/hosts.yml` symlinked to
+`../build/dc2-inventory.yml`) so its own group_vars get discovered correctly from the start.
+
 ## 2026-09-21 (latest) — AVD renderer for DC1, live (Phase 4 complete)
 
 Built the full Arista renderer and ran it end-to-end against the containerlab lab the user

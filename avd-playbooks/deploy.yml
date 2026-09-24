@@ -1,0 +1,9 @@
+---
+- name: Deploy DC1 EOS configs via eAPI
+  hosts: DC1
+  gather_facts: false
+
+  tasks:
+    - name: Push intended configuration via eAPI
+      ansible.builtin.import_role:
+        name: arista.avd.eos_config_deploy_eapi

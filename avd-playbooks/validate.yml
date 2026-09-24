@@ -1,0 +1,10 @@
+---
+- name: Validate DC1 fabric state with ANTA
+  hosts: DC1
+  connection: local
+  gather_facts: false
+
+  tasks:
+    - name: Run ANTA against the live devices
+      ansible.builtin.import_role:
+        name: arista.avd.anta_runner
