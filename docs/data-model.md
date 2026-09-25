@@ -161,10 +161,15 @@ there's no separate "gateway" field to keep in sync.
 **The VRF's RD is deliberately not stored.** It was hardcoded as `65001:50001` (DC1's ASN) in an
 earlier version of this model — copying that straight to DC2 (ASN 65002) would have produced a
 VRF with the wrong site's ASN baked into its route distinguisher, a real correctness bug a
-network engineer would notice. Both AVD and Nexus as Code derive the RD correctly from each
-site's own ASN by default, so NetBox just leaves the field unset (`rd: null` — not `""`, which
+network engineer would notice. NetBox now leaves the field unset (`rd: null` — not `""`, which
 NetBox normalizes back to `null` on read anyway, which made an earlier attempt at "clearing" it
-look changed on every single run).
+look changed on every single run) and lets each renderer compute its own. AVD's actual default
+isn't ASN-based at all — confirmed against the live deploy, it's `<Loopback0 IP>:<VNI>`
+(`overlay_rd_type.admin_subfield` defaults to `router_id`), so every leaf gets its own unique RD
+for the same VRF, which is the standard EVPN pattern of one RD per PE. See `docs/mapping.md` for
+the full picture, including what Nexus as Code does (nothing visible during offline validation —
+NDFC assigns RDs at actual deploy time, not something this project can observe without a
+controller).
 
 The VLAN group `vid_ranges` (100–199, 2000–2099) are directly what Nexus as Code calls
 `global.ibgp.layer2_vlan_range`/`layer3_vlan_range`. A native NetBox object is carrying settings

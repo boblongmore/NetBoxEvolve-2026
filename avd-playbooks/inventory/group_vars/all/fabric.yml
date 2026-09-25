@@ -1,5 +1,5 @@
 ---
-# Rendered from https://blnetbox.lab.local (exported 2026-09-25T15:35:05Z).
+# Rendered from https://blnetbox.lab.local (exported 2026-09-25T17:17:12Z).
 # Do not hand-edit -- re-run nb-playbooks/export-model.yml then
 # avd-playbooks/render-avd-vars.yml instead.
 fabric_name: DC1
@@ -47,7 +47,10 @@ tenants:
     vrfs:
       - name: TENANT1
         vrf_vni: 50001
-        rd_override: ""
+        # No rd_override: NetBox deliberately doesn't store an RD (see
+        # 50-overlay.yml) since it's per-device -- AVD's default RD is
+        # <router_id>:<vrf_vni> (each leaf's own Loopback0 IP), so it
+        # derives a unique, correct RD per PE with no input needed here.
         # AVD auto-derives the MLAG-per-VRF iBGP peering VLAN from vrf_vni
         # when vrf_id isn't set, which for a 5-digit VNI produces a VLAN ID
         # above 4094 -- invalid, and rejected outright by EOS on config
