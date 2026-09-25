@@ -1,5 +1,5 @@
 ---
-- name: Load the DC1 (Arista) data model into NetBox
+- name: Load the DC1 (Arista) and DC2 (Cisco) data model into NetBox
   hosts: netbox
   gather_facts: false
 
@@ -45,9 +45,35 @@
         name: overlay
       tags: overlay
 
-    - name: Devices
+    # devices' own defaults already match DC1 (cEOS/Management0/dc1-r01);
+    # DC2 needs every one of them overridden, plus its own device subset.
+    # hostvars[inventory_hostname].devices, not the bare "devices", because
+    # "devices: {{ devices | selectattr(...) }}" recurses infinitely --
+    # Ansible resolves the RHS against this same vars: block, not the
+    # outer host var, once a key of that name is being (re)defined here.
+    - name: Devices (DC1)
       ansible.builtin.include_role:
         name: devices
+      vars:  # noqa: var-naming[no-role-prefix] -- overriding the global vars, not naming new data
+        devices: "{{ hostvars[inventory_hostname].devices
+                      | selectattr('site', 'equalto', 'dc1') | list }}"
+        mlag_vtep_vips: "{{ hostvars[inventory_hostname].mlag_vtep_vips
+                             | selectattr('site', 'equalto', 'dc1') | list }}"
+      tags: devices
+
+    - name: Devices (DC2)
+      ansible.builtin.include_role:
+        name: devices
+      vars:  # noqa: var-naming[no-role-prefix] -- see the DC1 include above
+        devices: "{{ hostvars[inventory_hostname].devices
+                      | selectattr('site', 'equalto', 'dc2') | list }}"
+        mlag_vtep_vips: "{{ hostvars[inventory_hostname].mlag_vtep_vips
+                             | selectattr('site', 'equalto', 'dc2') | list }}"
+        devices_site: dc2
+        devices_rack: dc2-r01
+        devices_device_type: N9K-C93180YC-EX
+        devices_platform: nxos
+        devices_mgmt_interface: mgmt0
       tags: devices
 
     - name: Cables

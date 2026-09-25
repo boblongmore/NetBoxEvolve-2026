@@ -1,5 +1,110 @@
 # Progress Log
 
+## 2026-09-25 (later) — Each renderer's pipeline is now self-sufficient
+
+Operational feedback: an operator working in `avd-playbooks` or `nac-playbooks` shouldn't have to
+manually `cd ../nb-playbooks` first to get fresh NetBox data. Rather than duplicate
+`fabric_export`'s NetBox-reading logic (or its credentials) into each renderer directory --
+which was explicitly rejected back in the Phase 2 design discussion, for the same reasons --
+`render-avd-vars.yml` and `render-nac-vars.yml` now each start with a task that shells out to
+`nb-playbooks/export-model.yml` (`ansible.builtin.command` with `chdir`). `nb-playbooks` stays
+the sole owner of NetBox credentials and read logic; each renderer's entry point just triggers
+it as its own first step. Verified both run correctly with no prior manual step, from a shell
+that's never `cd`'d into `nb-playbooks` at all.
+
+Deliberately left `render-clab.yml` unchanged -- generating the containerlab topology is a
+one-time lab-setup step, not part of the recurring build/deploy/validate cycle this addresses.
+
+## 2026-09-25 — DC2 (Cisco) modeled, exported, and validated (Phase 5 complete)
+
+Extended NetBox with DC2 (site, rack, `Cisco` manufacturer, new `nxos` platform, new
+`N9K-C93180YC-EX` device type with real NX-OS interface naming (`Ethernet1/N`, `mgmt0`), 6
+devices, cables, ASN 65002, its own prefix pools out of `10.2.0.0/16`, its own VLAN
+groups/VLANs, and a `dc2-fabric` config context) -- shared objects (device roles, VRF, tenant)
+reused as-is. Then built `nac-playbooks` end to end: exported `build/dc2-model.yml`, rendered it
+into Nexus as Code's `vxlan:` schema, and ran `cisco.nac_dc_vxlan.validate` for real --
+**0 failures**, golden and extended service model JSON written to `nac-playbooks/rendered/`
+(the extended one is the direct analogue of AVD's structured configs).
+
+**The big payoff from Phase 3's design:** `nb-playbooks/roles/fabric_export` was built
+site-parameterized from the start (`fabric_export_site` role default). Extending it to DC2
+needed zero code changes to the role itself -- just a second `include_role` call with
+`fabric_export_site: dc2` overridden. The "one model, two vendors" thesis held up exactly as
+intended.
+
+**Real design fix made before extending, not after:** the VRF's RD was hardcoded as
+`"65001:50001"` (DC1's ASN) in Phase 2. Copying that straight to DC2 (ASN 65002) would have been
+silently wrong -- a real error a network engineer in the audience would catch. Removed the
+stored RD entirely (both AVD and Nexus as Code derive it correctly from each site's own ASN by
+default); this needed setting NetBox's field to explicit `rd: null`, not `""` -- NetBox
+normalizes an empty string back to null on read, so `""` looked "changed" on every single run
+forever until caught.
+
+**Real bugs hit and fixed extending nb-playbooks to a second site (all found by actually running
+it, not by inspection):**
+1. `devices: "{{ devices | selectattr(...) }}"` in an `include_role` `vars:` block recurses
+   infinitely -- Ansible resolves the RHS against that same `vars:` block once a key of that
+   name is being redefined there, not the outer host var. Fixed by referencing
+   `hostvars[inventory_hostname].devices` explicitly instead of the bare name.
+2. `fabric_export`'s several accumulator facts (`fabric_export_devices_raw`, `_cables`, `_pools`,
+   etc.) are built with `default([]) + [...]`, and `set_fact` persists as a host fact for the
+   rest of the play -- running the role a second time (for DC2) would have silently appended
+   DC2's data onto DC1's leftovers instead of starting clean. Added an explicit reset task at
+   the top of the role.
+3. The new "scope the VTEP VIP lookup to this site's vtep-loopback pool" code (written today,
+   to fix the single-MLAG-pair-globally assumption once a second pair existed) crashed on
+   `selectattr('role.name', ...)` against service prefixes, which have `role: null` --
+   `None.name` has no attribute. Fixed with `rejectattr('role', 'none')` first.
+4. The single global MLAG/vPC VTEP VIP (`role=anycast`, no site filter) from Phase 3 needed to
+   become per-site once DC2 added a second one -- scoped by "falls inside this site's own
+   vtep-loopback pool" (`?parent=<pool>`) rather than adding a new NetBox field just to
+   disambiguate.
+5. Two site-dependent things the `devices` role hardcoded turned out not to be constants:
+   the management interface name (`Management0` for cEOS, `mgmt0` for N9K) and the device
+   type/platform/rack. All now role defaults, overridden per site at `include_role` time.
+
+**Real bugs hit and fixed building the Nexus as Code renderer (none of this existed before
+today, so none of it is a repeat of an earlier mistake):**
+1. `cisco.nac_dc_vxlan.validate`'s own data-file scanning is hardcoded to
+   `playbook_dir/host_vars/<inventory_hostname>/*.yml` -- a completely separate mechanism from
+   Ansible's own inventory-relative `host_vars/` (which is where `ansible_network_os`, needed
+   for a different reason below, correctly lives). Confirmed directly in the role's
+   `sub_main.yml`. Two parallel `host_vars/` trees, different consumers, easy to conflate.
+2. The role's own workflow-detection debug task dereferences `ansible_network_os` unconditionally
+   and errors if it's undefined. Not something NetBox generates -- added
+   `nac-playbooks/inventory/host_vars/DC2/connection.yml` (hand-authored, `cisco.nxos.nxos`,
+   accurate for what we're actually modeling).
+3. Missing Python deps the collection's own `requirements.txt` names explicitly:
+   `nac-yaml==1.0.0` and `nac-validate==1.0.0` -- pinned exactly, not "latest", since 2.0.0 of
+   each has a different internal module layout the collection doesn't import correctly against.
+4. A real bug in the collection's own code: `when: enhanced_rules_path is defined and
+   enhanced_rules_path` returns a bare (falsy) string when that optional var is set to `""`, and
+   this ansible-core version's stricter conditional type-checking rejects a non-boolean `when`
+   result outright. We don't use the enhanced-rules feature at all. Set
+   `allow_broken_conditionals = True` in `nac-playbooks/ansible.cfg` -- Ansible's own documented
+   escape hatch for exactly this kind of old-collection/new-engine mismatch, named directly in
+   the error message.
+5. `validate` in this installed version (0.5.0) only keeps the golden/extended service model as
+   in-memory facts (`MD`/`MD_Extended`) -- it doesn't write them to a file itself (that's
+   apparently newer behavior; my original research was against 0.9.0-dev source, which does).
+   Added two small tasks to `build.yml` to persist them to `nac-playbooks/rendered/*.json`.
+
+### What's committed vs. not
+Same distinction as Phase 4: `build/*.yml` stays gitignored (interchange only).
+`nac-playbooks/host_vars/DC2/vxlan.yml` and `nac-playbooks/inventory/host_vars/DC2/connection.yml`
+ARE committed -- they're the renderer's actual input, same treatment as
+`avd-playbooks/inventory/group_vars/*`. `nac-playbooks/rendered/*.json` (the golden/extended
+service model) stays gitignored -- fully-derived final output, same as `avd-playbooks/intended/`.
+
+### Next up
+The core "one model, two vendors" thesis is now fully proven end to end: DC1 deployed live via
+AVD with a healthy EVPN control plane, DC2 rendered and validated via Nexus as Code with zero
+errors, both generated from the same NetBox objects. Remaining optional work: the border-leaf
+phase (additive, `border`/`edge-router` roles already exist unassigned), a `docs/mapping.md`
+field-by-field writeup now that both renderers are real, and deciding whether the untested
+"`dtc.common` might render full NDFC payloads offline" idea from the original plan is worth the
+~30 minutes on the bench.
+
 ## 2026-09-24 — Deployed and validated live (Phase 4 truly complete)
 
 Built `avd-playbooks/deploy.yml` (`arista.avd.eos_config_deploy_eapi`) and `validate.yml`

@@ -1,0 +1,24 @@
+---
+# Renders the Nexus as Code vxlan: data model straight from the NetBox-
+# exported model (dc2_model, loaded by the calling playbook) -- switches,
+# vPC pairs, cabling, VRF/network attach groups are all derived, never
+# hand-listed a second time here.
+#
+# This host_vars/ tree is NOT the same one Ansible's own inventory uses
+# (that one is inventory/host_vars/, set by ansible.cfg's `inventory =
+# inventory/`). cisco.nac_dc_vxlan.validate reads its fabric data by
+# scanning playbook_dir/host_vars/<inventory_hostname>/*.yml directly
+# (hardcoded in the role, confirmed in its sub_main.yml) -- a separate
+# mechanism from Ansible's variable system that happens to share the
+# directory name "host_vars".
+- name: Ensure the DC2 host_vars directory exists
+  ansible.builtin.file:
+    path: "{{ playbook_dir }}/host_vars/{{ dc2_model.fabric.name }}"
+    state: directory
+    mode: "0755"
+
+- name: "Render the vxlan: data model"
+  ansible.builtin.template:
+    src: vxlan.yml.j2
+    dest: "{{ playbook_dir }}/host_vars/{{ dc2_model.fabric.name }}/vxlan.yml"
+    mode: "0644"

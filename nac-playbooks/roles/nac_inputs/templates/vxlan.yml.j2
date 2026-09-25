@@ -1,0 +1,114 @@
+---
+# Rendered from {{ dc2_model.exported_from }} (exported {{ dc2_model.exported_at }}).
+# Do not hand-edit -- re-run nb-playbooks/export-model.yml then
+# nac-playbooks/render-nac-vars.yml instead.
+{% set l2vni = dc2_model.settings.l2vni_range.split('-') %}
+{% set l3vni = dc2_model.settings.l3vni_range.split('-') %}
+vxlan:
+  fabric:
+    name: {{ dc2_model.fabric.name }}
+    type: VXLAN_EVPN
+
+  global:
+    ibgp:
+      bgp_asn: "{{ dc2_model.fabric.asn }}"
+      route_reflectors: {{ dc2_model.devices | selectattr('role', 'equalto', 'spine') | list | length }}
+      anycast_gateway_mac: "{{ dc2_model.settings.anycast_gateway_mac }}"
+      layer2_vni_range: {from: {{ l2vni[0] }}, to: {{ l2vni[1] }}}
+      layer3_vni_range: {from: {{ l3vni[0] }}, to: {{ l3vni[1] }}}
+      vpc:
+        peer_link_vlan: {{ dc2_model.settings.vpc.peer_link_vlan }}
+        peer_keep_alive: {{ dc2_model.settings.vpc.keepalive_vrf }}
+        auto_recovery_time: {{ dc2_model.settings.vpc.auto_recovery_time }}
+        peer_link_port_channel_id: {{ dc2_model.settings.vpc.peer_link_po }}
+
+  topology:
+    switches:
+{% for device in dc2_model.devices | sort(attribute='node_id') %}
+      - name: {{ device.name }}
+        serial_number: {{ device.serial }}
+        role: {{ device.role }}
+        management:
+          management_ipv4_address: {{ device.mgmt_ip.split('/')[0] }}
+          subnet_mask_ipv4: {{ device.mgmt_ip.split('/')[1] }}
+          default_gateway_v4: {{ dc2_model.settings.mgmt_gateway }}
+{% endfor %}
+
+    vpc_peers:
+{% for pair in dc2_model.mlag_pairs %}
+      - peer1: {{ pair.peer1 }}
+        peer1_peerlink_interfaces:
+{% for iface in pair.peer_link_interfaces %}
+          - name: {{ iface }}
+{% endfor %}
+        peer2: {{ pair.peer2 }}
+        peer2_peerlink_interfaces:
+{% for iface in pair.peer_link_interfaces %}
+          - name: {{ iface }}
+{% endfor %}
+        domain_id: {{ pair.domain_id }}
+        fabric_peering: false
+        vtep_vip: "{{ pair.vtep_vip.split('/')[0] }}"
+{% endfor %}
+
+    fabric_links:
+{% for cable in dc2_model.cables | selectattr('kind', 'equalto', 'underlay') %}
+      - source_device: {{ cable.a.device }}
+        source_interface: {{ cable.a.interface }}
+        dest_device: {{ cable.b.device }}
+        dest_interface: {{ cable.b.interface }}
+{% endfor %}
+
+  underlay:
+    general:
+      routing_protocol: {{ dc2_model.settings.underlay }}
+      replication_mode: {{ dc2_model.settings.replication }}
+      intra_fabric_interface_mtu: {{ dc2_model.settings.p2p_mtu }}
+    ipv4:
+      fabric_interface_numbering: p2p
+      subnet_mask: 31
+      underlay_routing_loopback_ip_range: {{ dc2_model.pools['loopback-routerid'] }}
+      underlay_vtep_loopback_ip_range: {{ dc2_model.pools['vtep-loopback'] }}
+      underlay_subnet_ip_range: {{ dc2_model.pools['underlay-p2p'] }}
+    ospf:
+      area_id: 0.0.0.0
+
+  # Symmetric IRB via EVPN doesn't need a per-VRF transport SVI on the AVD
+  # side, but Nexus as Code does -- vrfs[].vlan_id is the one place the
+  # L3VNI placeholder VLAN in NetBox (TENANT1-L3VNI, vid 2001) actually
+  # gets used.
+  overlay:
+{% set l3vni_vlan = dc2_model.vlans | selectattr('vni', 'equalto', none) | map(attribute='vid') | first %}
+{% set attach_group = 'ALL_LEAF' %}
+    vrfs:
+{% for vrf in dc2_model.vrfs %}
+      - name: {{ vrf.name }}
+        vrf_id: {{ vrf.vni }}
+        vlan_id: {{ l3vni_vlan }}
+        vrf_attach_group: {{ attach_group }}
+{% endfor %}
+
+    vrf_attach_groups:
+      - name: {{ attach_group }}
+        switches:
+{% for device in dc2_model.devices | selectattr('tags', 'contains', 'svc-tenant1') | sort(attribute='node_id') %}
+          - hostname: {{ device.name }}
+{% endfor %}
+
+    networks:
+{% for vlan in dc2_model.vlans | selectattr('vni', 'ne', none) %}
+      - name: {{ vlan.name }}
+        vrf_name: {{ dc2_model.vrfs[0].name }}
+        net_id: {{ vlan.vni }}
+        vlan_id: {{ vlan.vid }}
+        vlan_name: {{ vlan.name }}
+        gw_ip_address: "{{ vlan.gateway }}"
+        network_attach_group: {{ attach_group }}
+{% endfor %}
+
+    network_attach_groups:
+      - name: {{ attach_group }}
+        switches:
+{% for device in dc2_model.devices | selectattr('tags', 'contains', 'svc-tenant1') | sort(attribute='node_id') %}
+          - hostname: {{ device.name }}
+{% endfor %}

@@ -1,10 +1,17 @@
 ---
-- name: Export the DC1 (Arista) fabric model out of NetBox
+- name: Export the DC1 (Arista) and DC2 (Cisco) fabric models out of NetBox
   hosts: netbox
   gather_facts: false
 
   tasks:
-    - name: Fabric export
+    - name: Fabric export (DC1)
       ansible.builtin.include_role:
         name: fabric_export
+      tags: fabric_export
+
+    - name: Fabric export (DC2)
+      ansible.builtin.include_role:
+        name: fabric_export
+      vars:
+        fabric_export_site: dc2
       tags: fabric_export

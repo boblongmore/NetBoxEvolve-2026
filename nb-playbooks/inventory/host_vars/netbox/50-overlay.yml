@@ -11,7 +11,19 @@ vlan_groups:
     scope_type: dcim.site
     scope: dc1
     vid_ranges: [[2000, 2099]]
+  - name: dc2-l2vni
+    scope_type: dcim.site
+    scope: dc2
+    vid_ranges: [[100, 199]]
+  - name: dc2-l3vni
+    scope_type: dcim.site
+    scope: dc2
+    vid_ranges: [[2000, 2099]]
 
+# Same vids/VNIs at both sites, deliberately -- DC1 and DC2 are two
+# independent fabrics, not one stretched across sites, but reusing
+# identical service numbers shows the same model producing the same
+# service definition on both vendor stacks.
 vlans:
   - name: TENANT1-APP
     vid: 110
@@ -36,29 +48,76 @@ vlans:
     tenant: TENANT1
     tags: [svc-tenant1]
     description: Transport VLAN for VRF TENANT1's L3VNI SVI (VNI lives on the VRF, not here).
+  - name: TENANT1-APP
+    vid: 110
+    site: dc2
+    vlan_group: dc2-l2vni
+    tenant: TENANT1
+    tags: [svc-tenant1]
+    custom_fields:
+      vni: 10110
+  - name: TENANT1-WEB
+    vid: 120
+    site: dc2
+    vlan_group: dc2-l2vni
+    tenant: TENANT1
+    tags: [svc-tenant1]
+    custom_fields:
+      vni: 10120
+  - name: TENANT1-L3VNI
+    vid: 2001
+    site: dc2
+    vlan_group: dc2-l3vni
+    tenant: TENANT1
+    tags: [svc-tenant1]
+    description: Transport VLAN for VRF TENANT1's L3VNI SVI -- this one Nexus as Code does need (vrfs[].vlan_id).
 
+# No stored RD: it should be derived per-site from that site's own ASN
+# (65001:50001 at DC1, 65002:50001 at DC2), not a single hardcoded value
+# that would be wrong for whichever site didn't originate it. Both AVD
+# and Nexus as Code derive this by default when no override is given.
 vrfs:
   - name: TENANT1
-    rd: "65001:50001"
+    # Explicit null, not "" -- NetBox normalizes an empty string back to
+    # null on read, so sending "" every run always looked "changed"
+    # against the null it actually stored. null matches what's really
+    # there and stays idempotent.
+    rd: null
     tenant: TENANT1
     tags: [svc-tenant1]
     custom_fields:
       vni: 50001
 
 # Anycast gateway = first usable address, by convention (.1) -- no separate
-# "gateway" field to maintain.
+# "gateway" field to maintain. vlan: is a {name, site} dict, not a bare
+# name string, because DC1 and DC2 now each have a VLAN named
+# "TENANT1-APP"/"TENANT1-WEB" -- a bare name would be ambiguous.
 service_prefixes:
   - prefix: 10.10.110.0/24
     scope_type: dcim.site
     scope: dc1
     vrf: TENANT1
-    vlan: TENANT1-APP
+    vlan: {name: TENANT1-APP, site: dc1}
     tenant: TENANT1
     tags: [svc-tenant1]
   - prefix: 10.10.120.0/24
     scope_type: dcim.site
     scope: dc1
     vrf: TENANT1
-    vlan: TENANT1-WEB
+    vlan: {name: TENANT1-WEB, site: dc1}
+    tenant: TENANT1
+    tags: [svc-tenant1]
+  - prefix: 10.20.110.0/24
+    scope_type: dcim.site
+    scope: dc2
+    vrf: TENANT1
+    vlan: {name: TENANT1-APP, site: dc2}
+    tenant: TENANT1
+    tags: [svc-tenant1]
+  - prefix: 10.20.120.0/24
+    scope_type: dcim.site
+    scope: dc2
+    vrf: TENANT1
+    vlan: {name: TENANT1-WEB, site: dc2}
     tenant: TENANT1
     tags: [svc-tenant1]

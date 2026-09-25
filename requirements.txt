@@ -11,3 +11,5 @@ distlib>=0.3.9
 grpclib>=0.4.8
 pyavd-utils>=0.0.6
 python-socks[asyncio]>=2.7.2
+nac-yaml==1.0.0
+nac-validate==1.0.0

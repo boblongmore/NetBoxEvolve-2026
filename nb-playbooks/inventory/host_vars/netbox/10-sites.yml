@@ -1,13 +1,23 @@
 ---
-# Site = Fabric. DC1 is the Arista half of the demo, deployed live.
+# Site = Fabric. DC1 is the Arista half of the demo, deployed live. DC2 is
+# the Cisco half, rendered only (no Nexus Dashboard available -- validated
+# via cisco.nac_dc_vxlan.validate, never deployed).
 sites:
   - name: dc1
     status: active
     description: L3 VXLAN EVPN fabric -- Arista AVD, deployed live via containerlab.
+  - name: dc2
+    status: active
+    description: L3 VXLAN EVPN fabric -- Cisco Nexus as Code, rendered/validated only.
 
 racks:
   - name: dc1-r01
     site: dc1
+    status: active
+    width: 19
+    u_height: 42
+  - name: dc2-r01
+    site: dc2
     status: active
     width: 19
     u_height: 42

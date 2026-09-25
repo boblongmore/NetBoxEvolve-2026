@@ -15,8 +15,11 @@ avd-playbooks/documentation/
 avd-playbooks/anta/
 avd-playbooks/config_backup/
 
-# Nexus as Code generated output
-nac-playbooks/roles/nac_inputs/files/
+# Nexus as Code generated output (golden/extended service model JSON --
+# the analogue of avd-playbooks/intended/). The rendered vxlan.yml input
+# itself (nac-playbooks/host_vars/, inventory/host_vars/) is committed,
+# same as avd-playbooks/inventory/group_vars/.
+nac-playbooks/rendered/
 # --- End project-specific ---
 
 # Byte-compiled / optimized / DLL files

@@ -1,0 +1,7 @@
+---
+# validate never actually connects to a device (confirmed: it's entirely
+# delegate_to: localhost), but its own workflow-detection display task
+# dereferences this var unconditionally and errors if it's undefined --
+# not something generated from the NetBox model, just a fact about what
+# platform this fabric targets.
+ansible_network_os: cisco.nxos.nxos

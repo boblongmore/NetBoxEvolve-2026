@@ -4,14 +4,21 @@
 #
 # mgmt_ip must match clab/dc1-arista.clab.yml exactly, the same way the
 # sibling capitalone-avd-poc project pins clab mgmt to its NetBox prefix.
+# DC2 is never deployed, so its mgmt_ip has no matching clab file to agree
+# with -- it just needs to be internally consistent.
 #
 # Leaf devices carry tag svc-tenant1 -- this is the ONLY record of which
 # devices get VRF TENANT1 / its VLANs attached. Without it there'd be no
 # way to answer "which devices carry this service" from NetBox itself;
 # the export would have to hardcode "every leaf gets everything", which
 # is exactly the kind of implicit rule this model is built to avoid.
+#
+# "site" here is a routing key for load-model.yml's two devices role
+# invocations (DC1 needs cEOS/Management0, DC2 needs N9K/mgmt0) -- it
+# isn't passed to the netbox_device module directly.
 devices:
   - name: dc1-spine1
+    site: dc1
     role: spine
     position: 40
     serial: DEMO0000001
@@ -19,6 +26,7 @@ devices:
     node_id: 1
 
   - name: dc1-spine2
+    site: dc1
     role: spine
     position: 39
     serial: DEMO0000002
@@ -26,6 +34,7 @@ devices:
     node_id: 2
 
   - name: dc1-leaf1
+    site: dc1
     role: leaf
     position: 4
     serial: DEMO0000003
@@ -35,6 +44,7 @@ devices:
     tags: [svc-tenant1]
 
   - name: dc1-leaf2
+    site: dc1
     role: leaf
     position: 3
     serial: DEMO0000004
@@ -44,6 +54,7 @@ devices:
     tags: [svc-tenant1]
 
   - name: dc1-leaf3
+    site: dc1
     role: leaf
     position: 2
     serial: DEMO0000005
@@ -52,11 +63,66 @@ devices:
     tags: [svc-tenant1]
 
   - name: dc1-leaf4
+    site: dc1
     role: leaf
     position: 1
     serial: DEMO0000006
     mgmt_ip: 172.20.21.16/24
     node_id: 6
+    tags: [svc-tenant1]
+
+  - name: dc2-spine1
+    site: dc2
+    role: spine
+    position: 40
+    serial: DEMO0000007
+    mgmt_ip: 172.20.22.11/24
+    node_id: 7
+
+  - name: dc2-spine2
+    site: dc2
+    role: spine
+    position: 39
+    serial: DEMO0000008
+    mgmt_ip: 172.20.22.12/24
+    node_id: 8
+
+  - name: dc2-leaf1
+    site: dc2
+    role: leaf
+    position: 4
+    serial: DEMO0000009
+    mgmt_ip: 172.20.22.13/24
+    node_id: 9
+    mlag_domain_id: 1
+    tags: [svc-tenant1]
+
+  - name: dc2-leaf2
+    site: dc2
+    role: leaf
+    position: 3
+    serial: DEMO0000010
+    mgmt_ip: 172.20.22.14/24
+    node_id: 10
+    mlag_domain_id: 1
+    tags: [svc-tenant1]
+
+  - name: dc2-leaf3
+    site: dc2
+    role: leaf
+    position: 2
+    serial: DEMO0000011
+    mgmt_ip: 172.20.22.15/24
+    node_id: 11
+    tags: [svc-tenant1]
+
+  - name: dc2-leaf4
+    site: dc2
+    role: leaf
+    position: 1
+    serial: DEMO0000012
+    mgmt_ip: 172.20.22.16/24
+    node_id: 12
     tags: [svc-tenant1]
 
 # The vPC/MLAG VTEP VIP -- Nexus as Code's mandatory vpc_peers[].vtep_vip.
@@ -66,8 +132,14 @@ devices:
 # Modeled as a single unassigned IP address (role Anycast) rather than the
 # same address on both peers' Loopback1 -- the VIP belongs to the pair, not
 # to either individual interface, and it keeps the object trivially
-# idempotent.
-mlag_vtep_vip:
-  address: 10.0.1.101/32
-  mlag_domain_id: 1
-  description: MLAG/vPC VTEP VIP for dc1-leaf1/dc1-leaf2 (mlag_domain_id 1).
+# idempotent. One per site, each inside that site's own vtep-loopback pool
+# so nb-playbooks/roles/fabric_export can tell them apart.
+mlag_vtep_vips:
+  - site: dc1
+    address: 10.0.1.101/32
+    mlag_domain_id: 1
+    description: MLAG/vPC VTEP VIP for dc1-leaf1/dc1-leaf2 (mlag_domain_id 1).
+  - site: dc2
+    address: 10.2.1.101/32
+    mlag_domain_id: 1
+    description: MLAG/vPC VTEP VIP for dc2-leaf1/dc2-leaf2 (mlag_domain_id 1).

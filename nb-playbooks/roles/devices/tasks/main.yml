@@ -25,13 +25,13 @@
   delay: 3
   delegate_to: localhost
 
-- name: Assign the management IP to each device's Management0 interface
+- name: Assign the management IP to each device's management interface
   netbox.netbox.netbox_ip_address:
     data:
       address: "{{ item.mgmt_ip }}"
       assigned_object:
         device: "{{ item.name }}"
-        name: Management0
+        name: "{{ devices_mgmt_interface }}"
     state: present
   loop: "{{ devices }}"
   loop_control:
@@ -58,14 +58,17 @@
   delegate_to: localhost
 
 # Nexus as Code's mandatory vpc_peers[].vtep_vip. Unassigned by design --
-# see the comment in 60-devices.yml for why.
-- name: Ensure the MLAG/vPC VTEP VIP is present
+# see the comment in 60-devices.yml for why. One per site.
+- name: Ensure the MLAG/vPC VTEP VIPs are present
   netbox.netbox.netbox_ip_address:
     data:
-      address: "{{ mlag_vtep_vip.address }}"
+      address: "{{ item.address }}"
       role: Anycast
-      description: "{{ mlag_vtep_vip.description }}"
+      description: "{{ item.description }}"
     state: present
+  loop: "{{ mlag_vtep_vips }}"
+  loop_control:
+    label: "{{ item.address }}"
   register: devices_result
   until: devices_result is succeeded
   retries: 3

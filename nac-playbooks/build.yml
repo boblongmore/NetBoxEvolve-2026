@@ -1,0 +1,36 @@
+---
+# validate runs entirely offline -- every task is delegate_to: localhost,
+# no Nexus Dashboard connectivity check, confirmed in the collection's own
+# role metadata. This is the whole point: DC2 renders and validates a
+# real service model without ever needing an NDFC instance.
+- name: Validate the DC2 Nexus as Code data model
+  hosts: DC2
+  connection: local
+  gather_facts: false
+
+  tasks:
+    - name: Run cisco.nac_dc_vxlan.validate
+      ansible.builtin.import_role:
+        name: cisco.nac_dc_vxlan.validate
+
+    # validate only keeps the golden/extended service model as in-memory
+    # facts (MD/MD_Extended) in this collection version -- it doesn't
+    # write them to a file itself. The extended model is the direct
+    # analogue of AVD's structured configs, so it's worth its own file.
+    - name: Ensure the rendered output directory exists
+      ansible.builtin.file:
+        path: "{{ playbook_dir }}/rendered"
+        state: directory
+        mode: "0755"
+
+    - name: Write the golden service model
+      ansible.builtin.copy:
+        dest: "{{ playbook_dir }}/rendered/dc2_service_model_golden.json"
+        content: "{{ MD | to_nice_json }}"
+        mode: "0644"
+
+    - name: Write the extended service model
+      ansible.builtin.copy:
+        dest: "{{ playbook_dir }}/rendered/dc2_service_model_extended.json"
+        content: "{{ MD_Extended | to_nice_json }}"
+        mode: "0644"

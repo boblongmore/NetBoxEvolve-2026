@@ -1,5 +1,5 @@
 ---
-# Rendered from https://blnetbox.lab.local (exported 2026-09-21T19:33:56Z).
+# Rendered from https://blnetbox.lab.local (exported 2026-09-25T15:35:05Z).
 # Do not hand-edit -- re-run nb-playbooks/export-model.yml then
 # avd-playbooks/render-avd-vars.yml instead.
 fabric_name: DC1
@@ -47,7 +47,7 @@ tenants:
     vrfs:
       - name: TENANT1
         vrf_vni: 50001
-        rd_override: "65001:50001"
+        rd_override: ""
         # AVD auto-derives the MLAG-per-VRF iBGP peering VLAN from vrf_vni
         # when vrf_id isn't set, which for a 5-digit VNI produces a VLAN ID
         # above 4094 -- invalid, and rejected outright by EOS on config

@@ -1,7 +1,8 @@
 ---
-# Overridable per include_role call so this same role serves DC2 in a
-# later phase without a rewrite.
+# Overridable per include_role call so this same role serves DC2 without
+# a rewrite -- DC2's N9K uses "mgmt0" (NX-OS convention), not "Management0".
 devices_site: dc1
 devices_rack: dc1-r01
 devices_device_type: cEOS
 devices_platform: ceos
+devices_mgmt_interface: Management0

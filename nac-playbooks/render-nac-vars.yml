@@ -1,0 +1,26 @@
+---
+- name: Render the Nexus as Code vxlan model from the NetBox-exported model
+  hosts: localhost
+  gather_facts: false
+
+  tasks:
+    # nb-playbooks owns all NetBox credentials and read logic -- this
+    # shells out to it rather than duplicating that logic or giving
+    # nac-playbooks its own NetBox access, so an operator never has to cd
+    # into nb-playbooks by hand. It always reports changed:
+    # nb-playbooks/export-model.yml stamps build/*.yml with a fresh
+    # export timestamp on every run.
+    - name: Export the fabric model from NetBox
+      ansible.builtin.command:
+        cmd: ansible-playbook export-model.yml
+        chdir: "{{ playbook_dir }}/../nb-playbooks"
+      changed_when: true
+
+    - name: Load the exported fabric model
+      ansible.builtin.include_vars:
+        file: "{{ playbook_dir }}/../build/dc2-model.yml"
+        name: dc2_model
+
+    - name: Nexus as Code input vars
+      ansible.builtin.include_role:
+        name: nac_inputs

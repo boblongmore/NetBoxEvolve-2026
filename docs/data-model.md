@@ -1,8 +1,8 @@
 # NetBox Data Model
 
 This document describes what's built in NetBox for this project, and why each piece is modeled
-the way it is. It covers DC1 (Arista) as it exists today; DC2 (Cisco) will extend the same
-pattern to a second site in a later phase.
+the way it is. DC1 (Arista) and DC2 (Cisco) both exist, built from the identical pattern
+described here -- DC2's own object values are called out inline wherever they differ from DC1's.
 
 ## The idea in one sentence
 
@@ -128,30 +128,43 @@ DC1's own space; `clab/dc1-arista.clab.yml` (written in a later phase) must use 
 
 - **Management IPs** (one per device, `172.20.21.11`–`.16`) — these have to be real, fixed
   addresses because containerlab needs to assign them and Ansible needs to reach the devices.
-- **The MLAG/vPC VTEP VIP** (`10.0.1.101/32`, role `Anycast`) — Nexus as Code's
-  `vpc_peers[].vtep_vip` is a mandatory field with no equivalent AVD needs, so it can't be
-  computed by a renderer; it has to be recorded. It's modeled as a single **unassigned** IP
-  address rather than the same address attached to both `dc1-leaf1` and `dc1-leaf2`'s
-  Loopback1 — NetBox's IP address module has no clean idempotent way to represent "one address,
-  two interfaces" (re-running would either silently move it or create a duplicate). An
-  unassigned VIP sidesteps that, and arguably models the concept more accurately: the VIP
-  belongs to the *pair*, not to either individual interface.
+- **The MLAG/vPC VTEP VIP** (`10.0.1.101/32` at DC1, `10.2.1.101/32` at DC2, both role
+  `Anycast`) — Nexus as Code's `vpc_peers[].vtep_vip` is a mandatory field with no equivalent AVD
+  needs, so it can't be computed by a renderer; it has to be recorded. It's modeled as a single
+  **unassigned** IP address rather than the same address attached to both leaf peers' Loopback1
+  — NetBox's IP address module has no clean idempotent way to represent "one address, two
+  interfaces" (re-running would either silently move it or create a duplicate). An unassigned
+  VIP sidesteps that, and arguably models the concept more accurately: the VIP belongs to the
+  *pair*, not to either individual interface. Since it's unassigned, there's no interface to
+  scope it to a site by — the export instead matches "the Anycast IP inside this site's own
+  vtep-loopback pool" (`?parent=<pool>`), which is how a second site's VIP stays distinguishable
+  from the first without adding a dedicated NetBox field just for that.
 
 ## Overlay: VLANs, VRF, VNIs
 
-| Object | Value |
-|---|---|
-| VLAN group `dc1-l2vni` | vid range 100–199 |
-| VLAN group `dc1-l3vni` | vid range 2000–2099 |
-| VLAN `TENANT1-APP` | vid 110, VNI 10110 |
-| VLAN `TENANT1-WEB` | vid 120, VNI 10120 |
-| VLAN `TENANT1-L3VNI` | vid 2001 — transport VLAN for the VRF's SVI; carries no VNI of its own |
-| VRF `TENANT1` | RD `65001:50001`, VNI 50001 |
-| Service prefix | `10.10.110.0/24`, VRF `TENANT1`, VLAN `TENANT1-APP` |
-| Service prefix | `10.10.120.0/24`, VRF `TENANT1`, VLAN `TENANT1-WEB` |
+| Object | DC1 | DC2 |
+|---|---|---|
+| VLAN groups | `dc1-l2vni` (100–199), `dc1-l3vni` (2000–2099) | `dc2-l2vni` (100–199), `dc2-l3vni` (2000–2099) |
+| VLAN `TENANT1-APP` | vid 110, VNI 10110 | vid 110, VNI 10110 |
+| VLAN `TENANT1-WEB` | vid 120, VNI 10120 | vid 120, VNI 10120 |
+| VLAN `TENANT1-L3VNI` | vid 2001 — transport VLAN for the VRF's SVI; carries no VNI of its own | vid 2001 |
+| VRF `TENANT1` | one shared object — VNI 50001 | (same object) |
+| Service prefixes | `10.10.110.0/24`, `10.10.120.0/24` | `10.20.110.0/24`, `10.20.120.0/24` |
+
+Same vids and VNIs at both sites, deliberately — DC1 and DC2 are two independent fabrics, not
+one stretched across sites, but reusing identical service numbers demonstrates the same model
+producing the same service definition on both vendor stacks.
 
 The anycast gateway for each service prefix is the first usable address (`.1`) by convention —
 there's no separate "gateway" field to keep in sync.
+
+**The VRF's RD is deliberately not stored.** It was hardcoded as `65001:50001` (DC1's ASN) in an
+earlier version of this model — copying that straight to DC2 (ASN 65002) would have produced a
+VRF with the wrong site's ASN baked into its route distinguisher, a real correctness bug a
+network engineer would notice. Both AVD and Nexus as Code derive the RD correctly from each
+site's own ASN by default, so NetBox just leaves the field unset (`rd: null` — not `""`, which
+NetBox normalizes back to `null` on read anyway, which made an earlier attempt at "clearing" it
+look changed on every single run).
 
 The VLAN group `vid_ranges` (100–199, 2000–2099) are directly what Nexus as Code calls
 `global.ibgp.layer2_vlan_range`/`layer3_vlan_range`. A native NetBox object is carrying settings
@@ -183,11 +196,15 @@ They're native NetBox config contexts, layered by weight:
 | Context | Weight | Scope | Carries |
 |---|---|---|---|
 | `fabric-common` | 1000 | global | `underlay: ospf`, `overlay: ibgp`, `replication: ingress`, `anycast_gateway_mac`, `p2p_mtu: 9214`, `l2vni_range: "10000-19999"`, `l3vni_range: "50000-59999"`, vPC timers (`peer_link_po`, `peer_link_vlan`, `keepalive_vrf`, `auto_recovery_time`) |
-| `dc1-fabric` | 1100 | site `dc1` | `fabric_name: DC1`, `mgmt_gateway`, `dns_servers`, `ntp_servers` |
+| `dc1-fabric` | 1100 | site `dc1` | `fabric_name: DC1`, `mgmt_gateway: 172.20.21.1`, `dns_servers`, `ntp_servers` |
+| `dc2-fabric` | 1100 | site `dc2` | `fabric_name: DC2`, `mgmt_gateway: 172.20.22.1`, `dns_servers`, `ntp_servers` |
 
-NetBox merges these automatically by weight — a device in `dc1` sees both layers combined, with
-`dc1-fabric` taking precedence on any overlapping key. When DC2 is added, a `dc2-fabric` context
-follows the same pattern; `fabric-common` doesn't change.
+NetBox merges these automatically by weight — a device sees `fabric-common` plus its own site's
+context combined, with the site-scoped layer taking precedence on any overlapping key. Adding
+DC2 changed nothing about `fabric-common`; it only added one more site-scoped layer alongside
+`dc1-fabric`, exactly as designed. The same `anycast_gateway_mac` is shared by both fabrics
+deliberately — they're independent, non-interconnected fabrics, so there's no requirement for
+distinct virtual-router MACs, and reusing one is simpler.
 
 **Why this instead of a custom object type:** an earlier version of this kind of model
 (`netbox_configure`'s `avd_fabric_data` custom object type) needed a third-party plugin, a

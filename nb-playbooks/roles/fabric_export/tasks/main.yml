@@ -1,11 +1,28 @@
 ---
-# Reads DC1 back out of NetBox and writes build/dc1-model.yml (the
-# vendor-neutral model) plus build/dc1-inventory.yml. Neither AVD nor
+# Reads a site back out of NetBox and writes build/<site>-model.yml (the
+# vendor-neutral model) plus build/<site>-inventory.yml. Neither AVD nor
 # Nexus as Code talks to NetBox directly -- this is the only place that
 # reads NetBox for the render side, matching the one place in the loader
 # (roles/ipam) that had to drop to a raw API call instead of a module:
 # there is no netbox.netbox module for "read arbitrary objects back out",
 # so this whole role is ansible.builtin.uri + set_fact.
+
+# export-model.yml includes this role once per site in the same play.
+# Every fabric_export_* fact below is built by accumulating into a list/
+# dict with "default([]) + [...]" -- set_fact persists as a host fact for
+# the rest of the play, so without resetting these here, a second
+# invocation would silently append the next site's data onto the first
+# site's leftovers instead of starting clean.
+- name: Reset accumulator facts before this site's export
+  ansible.builtin.set_fact:
+    fabric_export_devices_raw: []
+    fabric_export_devices: []
+    fabric_export_cables: []
+    fabric_export_links: []
+    fabric_export_mlag_pairs: []
+    fabric_export_pools: {}
+    fabric_export_service_prefixes: {}
+    fabric_export_vlans: []
 
 - name: Only need a timestamp for the export banner, not full facts
   ansible.builtin.setup:
@@ -81,27 +98,37 @@
   delegate_to: localhost
   register: fabric_export_vrf_lookup
 
+# Anycast IPs aren't assigned to an interface (see 60-devices.yml), so
+# there's no assigned_object to filter on. Scoped instead by "falls
+# inside this site's own vtep-loopback pool" -- reuses data already
+# fetched above rather than adding a new NetBox field just for this.
+- name: Set this site's vtep-loopback pool
+  ansible.builtin.set_fact:
+    fabric_export_vtep_pool: "{{ fabric_export_prefixes_lookup.json.results
+                                  | rejectattr('role', 'none')
+                                  | selectattr('role.name', 'equalto', 'vtep-loopback')
+                                  | map(attribute='prefix') | first }}"
+
 - name: Look up the MLAG/vPC VTEP VIP
   ansible.builtin.uri:
-    url: "{{ netbox_api }}/api/ipam/ip-addresses/?role=anycast"
+    url: "{{ netbox_api }}/api/ipam/ip-addresses/?role=anycast&parent={{ fabric_export_vtep_pool }}"
     headers:
       Authorization: "Token {{ netbox_token }}"
     validate_certs: false
   delegate_to: localhost
   register: fabric_export_vtep_vip_lookup
 
-# Current design limitation: this fabric has exactly one MLAG/vPC pair, so
-# "the only Anycast-role IP in this instance" is a safe way to find its
-# VIP. A second pair would need a real link (e.g. a custom field on the IP
-# address) instead of this shortcut -- fail loudly rather than silently
-# guessing wrong if that ever changes.
-- name: Assert exactly one MLAG/vPC VTEP VIP exists
+# Current design limitation: this fabric models exactly one MLAG/vPC pair
+# per site. A second pair at the same site would need a real link (e.g.
+# a custom field on the IP address) instead of this shortcut -- fail
+# loudly rather than silently guessing wrong if that ever changes.
+- name: Assert exactly one MLAG/vPC VTEP VIP exists for this site
   ansible.builtin.assert:
     that: (fabric_export_vtep_vip_lookup.json.results | length) == 1
     fail_msg: >-
-      Expected exactly one Anycast-role IP address (the MLAG/vPC VTEP VIP),
-      found {{ fabric_export_vtep_vip_lookup.json.results | length }}.
-      This export assumes a single MLAG/vPC pair.
+      Expected exactly one Anycast-role IP address in {{ fabric_export_vtep_pool }}
+      (the MLAG/vPC VTEP VIP), found {{ fabric_export_vtep_vip_lookup.json.results | length }}.
+      This export assumes a single MLAG/vPC pair per site.
 
 - name: Normalize the device list
   ansible.builtin.set_fact:

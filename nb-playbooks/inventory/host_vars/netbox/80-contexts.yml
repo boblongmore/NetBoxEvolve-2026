@@ -30,3 +30,13 @@ config_contexts:
       mgmt_gateway: 172.20.21.1
       dns_servers: ["172.20.21.1"]
       ntp_servers: ["172.20.21.1"]
+
+  - name: dc2-fabric
+    weight: 1100
+    sites: [dc2]
+    description: DC2-specific fabric settings (Cisco, rendered only).
+    data:
+      fabric_name: DC2
+      mgmt_gateway: 172.20.22.1
+      dns_servers: ["172.20.22.1"]
+      ntp_servers: ["172.20.22.1"]

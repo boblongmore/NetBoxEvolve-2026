@@ -7,6 +7,10 @@ asns:
     rir: Bob Co RIR
     site: dc1
     description: dc1 fabric ASN -- underlay OSPF, overlay iBGP EVPN, spines as route reflectors.
+  - asn: 65002
+    rir: Bob Co RIR
+    site: dc2
+    description: dc2 fabric ASN -- underlay OSPF, overlay iBGP EVPN, spines as route reflectors.
 
 # loopback-routerid, mlag-peer-l2 and mlag-peer-l3 are new. vtep-loopback,
 # underlay-p2p and management already exist from the netbox_configure
@@ -58,5 +62,40 @@ prefix_pools:
   - prefix: 10.255.253.0/24
     scope_type: dcim.site
     scope: dc1
+    prefix_role: mlag-peer-l3
+    is_pool: true
+
+  # DC2 pools all fit inside 10.2.0.0/16, distinct from DC1's ranges.
+  # Management doesn't need to avoid a live Docker network like DC1's did
+  # (DC2 is never deployed), so it's just the next octet up.
+  - prefix: 172.20.22.0/24
+    scope_type: dcim.site
+    scope: dc2
+    prefix_role: management
+    is_pool: true
+    description: dc2 management network (rendered only -- no containerlab deployment).
+  - prefix: 10.2.0.0/24
+    scope_type: dcim.site
+    scope: dc2
+    prefix_role: loopback-routerid
+    is_pool: true
+  - prefix: 10.2.1.0/24
+    scope_type: dcim.site
+    scope: dc2
+    prefix_role: vtep-loopback
+    is_pool: true
+  - prefix: 10.2.2.0/24
+    scope_type: dcim.site
+    scope: dc2
+    prefix_role: underlay-p2p
+    is_pool: true
+  - prefix: 10.2.252.0/24
+    scope_type: dcim.site
+    scope: dc2
+    prefix_role: mlag-peer-l2
+    is_pool: true
+  - prefix: 10.2.253.0/24
+    scope_type: dcim.site
+    scope: dc2
     prefix_role: mlag-peer-l3
     is_pool: true
