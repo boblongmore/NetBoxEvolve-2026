@@ -16,10 +16,16 @@ avd-playbooks/anta/
 avd-playbooks/config_backup/
 
 # Nexus as Code generated output (golden/extended service model JSON --
-# the analogue of avd-playbooks/intended/). The rendered vxlan.yml input
-# itself (nac-playbooks/host_vars/, inventory/host_vars/) is committed,
-# same as avd-playbooks/inventory/group_vars/.
+# the analogue of avd-playbooks/intended/).
 nac-playbooks/rendered/
+
+# Vars rendered from NetBox by render-avd-vars.yml / render-nac-vars.yml.
+# Re-create them by running those playbooks. The hand-maintained files
+# beside them (connection.yml, vault.yml, avd_output.yml) stay tracked.
+avd-playbooks/inventory/group_vars/all/fabric.yml
+avd-playbooks/inventory/group_vars/dc1_leaf/leaf.yml
+avd-playbooks/inventory/group_vars/dc1_spine/spine.yml
+nac-playbooks/host_vars/DC2/vxlan.yml
 # --- End project-specific ---
 
 # Byte-compiled / optimized / DLL files
