@@ -7,3 +7,22 @@
     src: dc1-arista.clab.yml.j2
     dest: "{{ clab_out_path }}"
     mode: "0644"
+
+# Each node boots with management already in vrf MGMT (see the template
+# header for why). Paths in the topology file are relative to it, so these
+# land in clab/bootstrap/ next to dc1-arista.clab.yml.
+- name: Create the bootstrap config directory
+  ansible.builtin.file:
+    path: "{{ clab_out_path | dirname }}/bootstrap"
+    state: directory
+    mode: "0755"
+
+- name: Render a bootstrap config for each node
+  ansible.builtin.template:
+    src: bootstrap.cfg.j2
+    dest: "{{ clab_out_path | dirname }}/bootstrap/{{ device.name }}.cfg"
+    mode: "0644"
+  loop: "{{ dc1_model.devices }}"
+  loop_control:
+    loop_var: device
+    label: "{{ device.name }}"

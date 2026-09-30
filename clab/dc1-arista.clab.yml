@@ -1,5 +1,5 @@
 ---
-# Rendered from https://blnetbox.lab.local (exported 2026-09-21T18:19:09Z).
+# Rendered from https://blnetbox.lab.local (exported 2026-09-29T21:40:25Z).
 # Do not hand-edit -- re-run nb-playbooks/export-model.yml then
 # avd-playbooks/render-clab.yml instead.
 name: dc1-arista
@@ -19,21 +19,35 @@ topology:
     dc1-leaf1:
       kind: arista_ceos
       mgmt-ipv4: 172.20.21.13
+      startup-config: bootstrap/dc1-leaf1.cfg
     dc1-leaf2:
       kind: arista_ceos
       mgmt-ipv4: 172.20.21.14
+      startup-config: bootstrap/dc1-leaf2.cfg
     dc1-leaf3:
       kind: arista_ceos
       mgmt-ipv4: 172.20.21.15
+      startup-config: bootstrap/dc1-leaf3.cfg
     dc1-leaf4:
       kind: arista_ceos
       mgmt-ipv4: 172.20.21.16
+      startup-config: bootstrap/dc1-leaf4.cfg
+    dc1-leaf5:
+      kind: arista_ceos
+      mgmt-ipv4: 172.20.21.17
+      startup-config: bootstrap/dc1-leaf5.cfg
+    dc1-leaf6:
+      kind: arista_ceos
+      mgmt-ipv4: 172.20.21.18
+      startup-config: bootstrap/dc1-leaf6.cfg
     dc1-spine1:
       kind: arista_ceos
       mgmt-ipv4: 172.20.21.11
+      startup-config: bootstrap/dc1-spine1.cfg
     dc1-spine2:
       kind: arista_ceos
       mgmt-ipv4: 172.20.21.12
+      startup-config: bootstrap/dc1-spine2.cfg
 
   links:
     - endpoints: ["dc1-leaf1:eth1", "dc1-spine1:eth1"]
@@ -46,3 +60,7 @@ topology:
     - endpoints: ["dc1-leaf4:eth2", "dc1-spine2:eth4"]
     - endpoints: ["dc1-leaf1:eth7", "dc1-leaf2:eth7"]
     - endpoints: ["dc1-leaf1:eth8", "dc1-leaf2:eth8"]
+    - endpoints: ["dc1-leaf5:eth1", "dc1-spine1:eth5"]
+    - endpoints: ["dc1-leaf5:eth2", "dc1-spine2:eth5"]
+    - endpoints: ["dc1-leaf6:eth1", "dc1-spine1:eth6"]
+    - endpoints: ["dc1-leaf6:eth2", "dc1-spine2:eth6"]

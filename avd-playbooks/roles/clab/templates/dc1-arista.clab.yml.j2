@@ -20,6 +20,7 @@ topology:
     {{ device.name }}:
       kind: arista_ceos
       mgmt-ipv4: {{ device.mgmt_ip.split('/')[0] }}
+      startup-config: bootstrap/{{ device.name }}.cfg
 {% endfor %}
 
   links:
