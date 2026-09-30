@@ -69,6 +69,20 @@ cables:
     a: {device: dc2-leaf1, interface: Ethernet1/8}
     b: {device: dc2-leaf2, interface: Ethernet1/8}
 
+# For adding switches during demo
+  - kind: underlay
+    a: {device: dc1-leaf5, interface: Ethernet1}
+    b: {device: dc1-spine1, interface: Ethernet5}
+  - kind: underlay
+    a: {device: dc1-leaf5, interface: Ethernet2}
+    b: {device: dc1-spine2, interface: Ethernet5}
+  - kind: underlay
+    a: {device: dc1-leaf6, interface: Ethernet1}
+    b: {device: dc1-spine1, interface: Ethernet6}
+  - kind: underlay
+    a: {device: dc1-leaf6, interface: Ethernet2}
+    b: {device: dc1-spine2, interface: Ethernet6}
+
 # Port-Channel1 bundles the peer-link members on both MLAG peers.
 lag_interfaces:
   - device: dc1-leaf1

@@ -125,6 +125,25 @@ devices:
     node_id: 12
     tags: [svc-tenant1]
 
+  # For adding switches during demo
+  - name: dc1-leaf5
+    site: dc1
+    role: leaf
+    position: 42
+    serial: DEMO00099o
+    mgmt_ip: 172.20.21.17/24
+    node_id: 13
+    tags: [svc-tenant1]
+
+  - name: dc1-leaf6
+    site: dc1
+    role: leaf
+    position: 41
+    serial: DEMO00002323
+    mgmt_ip: 172.20.21.18/24
+    node_id: 14
+    tags: [svc-tenant1]
+
 # The vPC/MLAG VTEP VIP -- Nexus as Code's mandatory vpc_peers[].vtep_vip.
 # Deliberately the only VTEP-related address stored: everything else is
 # computed (AVD) or allocated (NDFC) from the vtep-loopback pool.

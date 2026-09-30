@@ -1,0 +1,21 @@
+---
+# NetBox -> render vars -> build intended configs -> deploy to the lab.
+# Each stage is the same playbook you can still run on its own.
+- name: Render
+  ansible.builtin.import_playbook: render-avd-vars.yml
+
+# Ansible reads group_vars once, when it loads the inventory at startup.
+# The render step just rewrote them (and the inventory), so reload before
+# the build and deploy plays try to use them.
+- name: Reload inventory and the freshly rendered group_vars
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Refresh inventory
+      ansible.builtin.meta: refresh_inventory
+
+- name: Build
+  ansible.builtin.import_playbook: build.yml
+
+- name: Deploy
+  ansible.builtin.import_playbook: deploy.yml
